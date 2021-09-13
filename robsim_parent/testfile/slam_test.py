@@ -81,17 +81,17 @@ for error_landmark_range in [False, True]:
                 # %% Interpolating route
                 d = 0.01 # Approximate step size for the interpolation.
 		
-		# Computing angles for every position
+		        # Computing angles for every position
                 angles = [atan2((y2 - y1), (x2 - x1)) for (x1, y1), (x2, y2) in zip(nodes[:-1], nodes[1:])]
                 angles = [angles[0]] + angles
 
                 angles = [angle % (2 * pi) for angle in angles]
 		
-		# Computing the smallest angle 
+		        # Computing the smallest angle 
                 for i in range(len(angles) - 1):
                     angles[i + 1] = rs.minimize_angular_difference(angles[i], angles[i + 1])
 		
-		# Putting it all together
+		        # Assembling poses and creating splines
                 poses = [rs.Pose(click[0], click[1], v) for v, click in zip(angles, nodes)]
 
                 poses = [poses[0]] + poses + [poses[-1]]
@@ -129,13 +129,14 @@ for error_landmark_range in [False, True]:
                 # %% Get landmark measurements
                 from tqdm import tqdm
 
-                print('Computing measurements.')
+                print('Computing which landmarks can be seen.')
                 landmarks = []
                 for pose in tqdm(route):
                     measurements = []
                     for i, landmark in enumerate(ws.landmarks):
                         origin = rs.Point(pose.x, pose.y)
 
+                        # Euclidean distance between origin and landmark
                         d = rs.dist_l2(origin, landmark)
 
                         if error_landmark_range and d > landmark.type.detection_range:
@@ -143,9 +144,11 @@ for error_landmark_range in [False, True]:
 
                         if error_landmark_visibility and random.random() > landmark.type.visibility:
                             continue
-
+                        
+                        # Generating a line between two points
                         line = rs.Line(origin, landmark)
 
+                        # 
                         intersections = ws.get_intersections(line, only_first=True)
                         intersections = [rs.Point(*i) for i in intersections]
 
