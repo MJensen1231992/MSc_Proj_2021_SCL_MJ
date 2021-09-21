@@ -3,42 +3,47 @@ import matplotlib.pyplot as plt
 import cv2
 from math import pow, ceil, atan2, pi
 
-def rom_spline(path, t: tuple = (0, 0.33, 0.66, 1), d: float = 0.01, alpha: float = 0.5):
-    """
-    
-    """
-    dt = np.dtype('int,int,float')
-    path = np.array(path, dtype=dt)
-    print(path[0][0])
-    dist = np.linalg.norm(np.array([path[0][0],path[0][1]-path[1][0],path[1][1]]))
-    N = ceil(dist/d)
+def do_rom_splines(route):
+    size = len(route)
+    C = []
 
-    x = [int(p[0]) for p in path]
-    y = [int(p[1]) for p in path]
-    theta = [float(p[2]) for p in path]
-        
+    for i in range(size - 3):
+        c = rom_spline(route[i], route[i+1], route[i+2], route[i+3])
+        C.extend(c)
+    
+    return C
+
+def rom_spline(P0, P1, P2, P3, t: tuple = (0, 0.33, 0.66, 1), alpha: float = 0.5):
+
+    P0, P1, P2, P3 = map(np.array, [P0, P1, P2, P3])
+
     t0 = 0
-    t1 = traj(x, y, theta, alpha, t0)
-    t2 = traj(x, y, theta, alpha, t1)
-    t3 = traj(x, y, theta, alpha, t2)
+    t1 = traj(P0, P1, t0, alpha)
+    t2 = traj(P1, P2, t1, alpha)
+    t3 = traj(P2, P3, t2, alpha)
 
+    t = np.linspace(t1, t2, 100)
+    t = t.reshape(len(t), 1)
 
-    T = [(t2 - t1) * n / (N - 1) + t1 for n in range(N)]
+    A1 = (t1 - t)/(t1 - t0)*P0 + (t - t0)/(t1 - t0)*P1
+    A2 = (t2 - t)/(t2 - t1)*P1 + (t - t1)/(t2 - t1)*P2
+    A3 = (t3 - t)/(t3 - t2)*P2 + (t - t2)/(t3 - t2)*P3 
 
-    points = []
-    for t in T:    
-        A1 = (t1 - t)/(t1 - t0)*path[0] + (t - t0)/(t1 - t0)*path[1]
-        A2 = (t2 - t)/(t2 - t1)*path[1] + (t - t1)/(t2 - t1)*path[2]
-        A3 = (t3 - t)/(t3 - t2)*path[2] + (t - t2)/(t3 - t2)*path[3] 
-
-        B1 = A1*(t2 - t)/(t2 - t0) + A2*(t - t0)/(t2 - t0)
-        B2 = A2*(t3 - t)/(t3 - t1) + A3*(t - t1)/(t3 - t1) 
+    B1 = A1*(t2 - t)/(t2 - t0) + A2*(t - t0)/(t2 - t0)
+    B2 = A2*(t3 - t)/(t3 - t1) + A3*(t - t1)/(t3 - t1) 
             
-        pt = B1*(t2 - t)/(t2 - t1) + B2*(t - t1)/(t2 - t1)
-        points.append(pt)
+    pt = B1*(t2 - t)/(t2 - t1) + B2*(t - t1)/(t2 - t1)
+        
+    return pt
 
-    return points
-    
+def traj(Pi, Pj, t, alpha):
+
+    xi, yi, thi = Pi
+    xj, yj, thj = Pj
+
+    return (pow((xj - xi),2) + pow((yj-yi),2) + pow((thj - thi),2))**alpha + t
+
+# Old version    
 def do_splines(route, angles):
         
     poses = [(pose[0], pose[1], theta) for pose, theta in zip(route, angles)]
@@ -48,9 +53,6 @@ def do_splines(route, angles):
 
     return poses, full_route
 
-def traj(x, y, theta, alpha, ti):
-
-        return pow((x[1] - x[0])**2 + (y[1] - y[0])**2 + (theta[1] - theta[0])**2, alpha) + ti
 
 def calculate_angles(route):
 

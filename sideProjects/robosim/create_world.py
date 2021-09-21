@@ -2,16 +2,13 @@ import numpy as np
 import matplotlib as plt
 import cv2
 import matplotlib.pyplot as plt
-import sys
-
-from numpy.core.defchararray import count
 
 # local packages
-from lib.utility import do_splines, calculate_angles
+from lib.utility import do_rom_splines, calculate_angles
 
 class world:
     def __init__(self, background: str, landmarks: str):
-
+       
         img = cv2.imread(background, cv2.IMREAD_GRAYSCALE)
 
         img = cv2.threshold(img, 100, 255, cv2.THRESH_BINARY)[1]
@@ -36,7 +33,7 @@ class world:
 
             cv2.circle(self.grid_copy, (x,y), 5, (0, 255, 0), -1)
             cv2.imshow('Robot_route', self.grid_copy)
-            self.route.append((x,y))
+            self.route.append([x,y])
 
     def make_robot_path(self, print_coordinates: bool = True):
         self.grid = np.asarray(self.crop_img)
@@ -53,9 +50,20 @@ class world:
         # print(self.route)
         angles = calculate_angles(self.route)
         
+        poses = [[pose[0], pose[1], theta] for pose, theta in zip(self.route, angles)]
+        poses = [poses[0]] + poses + [poses[-1]]
+        
+        full_route = do_rom_splines(poses)
 
-        # poses, full_route = do_splines(self.route, angles)
+        
+        x, y, th = zip(*full_route)
+        plt.plot(x, y)
 
+        px, py, pth = zip(*poses)
+        plt.plot(px, py, 'or')
+        
+        plt.imshow(self.crop_img, cmap='gray')
+        plt.show()
 
         # if print_coordinates:
         #     print(full_route)
