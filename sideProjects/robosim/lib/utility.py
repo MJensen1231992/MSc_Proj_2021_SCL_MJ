@@ -1,7 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import cv2
-from math import pow, atan2, pi, sqrt, cos, sin
+from math import atan2, pi, cos, sin
 import json
 
 def do_rom_splines(route):
@@ -17,7 +16,7 @@ def do_rom_splines(route):
     
     return C
 
-def rom_spline(P0, P1, P2, P3, t: tuple = (0, 0.33, 0.66, 1), alpha: float = 0.5):
+def rom_spline(P0: float, P1: float, P2: float, P3: float, t: tuple = (0, 0.33, 0.66, 1), alpha: float = 0.5):
 
     P0, P1, P2, P3 = map(np.array, [P0, P1, P2, P3])
 
@@ -44,8 +43,8 @@ def traj(Pi, Pj, t, alpha):
 
     xi, yi, thi = Pi
     xj, yj, thj = Pj
-
-    return (pow((xj - xi),2) + pow((yj-yi),2) + pow((thj - thi),2))**alpha + t
+            
+    return ( ( (xj-xi)**2 + (yj-yi)**2 + (thj - thi)**2 )**0.5 )**alpha + t
 
 
 def calculate_angles(route):
@@ -59,17 +58,51 @@ def calculate_angles(route):
     return angles
 
 
-def min_theta(angle):
+def min_theta(theta):
     # Setting minimum angular difference 
-    if (angle > pi):
-        angle -= 2 * pi
-    elif (angle <= -pi): 
-        angle += 2 * pi
+    if (theta > pi):
+        theta -= 2 * pi
+    elif (theta <= -pi): 
+        theta += 2 * pi
 
-    return angle
+    return theta
 
 
-def odometry_drift_simple(x, y, th, drift_constant_std: float = 0.05):
+def deg2grad(theta):
+    
+    return pi*theta / 180.0
+
+def rad2deg(theta):
+
+    return 180.0 * theta / pi
+
+def robot_heading(x, y, theta, length: float = 0.00001, width: float = 0.00001):
+        """
+        Method that plots the heading of every pose
+        """
+        x = x[1:-1]
+        y = y[1:-1]
+        theta = theta[1:-1]
+
+        terminus_x = x + length * np.cos(theta)
+        terminus_y = y + length * np.sin(theta)
+        plt.plot([x, terminus_x], [y, terminus_y])
+
+def add_GNSS_noise(x, y, std_gps_x: float = 0.0001, std_gps_y: float = 0.001):
+    """Adding noise to GNSS(GPS) points from groundt truht
+
+    Args:
+        x ([np.array 1xN]): [x displacement]
+        y ([np.array 1xN]): [y displacement]
+        std_gps (float, optional): [standard deviation for GPS points]. Defaults to 0.01.
+    """    
+    noise_x_dir = np.random.normal(0, std_gps_x)
+    noise_y_dir = np.random.normal(0, std_gps_y)
+    x_noise = x + noise_x_dir
+    y_noise = y + noise_y_dir
+    return x_noise, y_noise
+
+def odometry_drift_simple(x, y, th, drift_constant_std: float = 0.0000001):
     """ 
     Simply adding a constant to the wheels to simulate drift 
     The drift is computed using a normal gaussian distribution with standard deviation from the constant drift_constant_std
@@ -78,9 +111,7 @@ def odometry_drift_simple(x, y, th, drift_constant_std: float = 0.05):
         The fully drifted route 
     """
 
-    x = np.asarray_chkfinite(x)
-    y = np.asarray_chkfinite(y)
-    th = np.asarray_chkfinite(th)
+    x, y, th = convert_to_np_array(x, y, th)
 
     x_noise = []
     y_noise = []
@@ -97,7 +128,7 @@ def odometry_drift_simple(x, y, th, drift_constant_std: float = 0.05):
         y_noise.append(y_new)
         th_noise.append(th_new)
 
-        noise += np.random.normal(0.1, drift_constant_std)
+        noise += np.random.normal(0.000001, drift_constant_std)
 
     return x_noise, y_noise, th_noise
     
@@ -115,7 +146,7 @@ def reduce_dimensions(route):
     reduced = []
 
     for i in range(len(route[0,:])):
-        if (i % 1.5 == 1):
+        if (i % 5 == 0):
             reduced.append(route[:,i])
 
     print('Reduced size of path from {} to {}'.format(len(route[1]), np.shape(reduced)[0]))
@@ -123,6 +154,14 @@ def reduce_dimensions(route):
     return np.asarray_chkfinite(reduced)
  
 
+def convert_to_np_array(x, y, th):
+    # Converting list to numpy array
+        
+    x_new = np.asarray_chkfinite(x)
+    y_new = np.asarray_chkfinite(y)
+    th_new = np.asarray_chkfinite(th)
+
+    return x_new, y_new, th_new
 
 def save_to_json(l, name):
     with open(name, 'w') as f:
@@ -133,45 +172,61 @@ def load_from_json(name):
         return json.load(f)
 
 
-
 #######################
 # BELOW IS DEPRECATED #
 
-def odometry_drift(x, y, th, std: float = 0.3):
-    """
-    Adding gaussian noise to odometry
-    """
-    error_x = np.random.normal(1, std)
-    error_y = np.random.normal(1, std*0.5)
-    error_th = np.random.normal(1, std*0.1)
+def odometry_drift(x, y, th, std: float = 0.03):
+    
+    x, y, th = convert_to_np_array(x, y, th)
+    xN = np.zeros(len(x)); yN = np.zeros(len(y)); thN = np.zeros(len(th))
+    xN[0] = x[0]; yN[0] = y[0]; thN[0] = th[0]
 
-    x = np.asarray_chkfinite(x)
-    y = np.asarray_chkfinite(y)
-    th = np.asarray_chkfinite(th)
-
-    dist = []
-    angle = []
-
-    # Converting to polar coordinates and back again in order to add radial noise
-    for i in range(len(x)):
-        r = sqrt(pow(x[i],2) + pow(y[i],2)) # range
-        a = atan2(x[i],y[i])    # angle
+    for i in range(1, len(x)):
+        pcurr = (x[i-1], y[i-1], th[i-1])
+        pnext = (x[i], y[i], th[i])
         
-        dist.append(r * error_x)
-        angle.append(a * error_y)
-    
-    x_noise = []
-    y_noise = []
-    th_noise = []
-    
-    for i in range(len(dist)):
-        x1 = dist[i] * cos(angle[i])
-        y1 = dist[i] * sin(angle[i])
-        x_noise.append(x1)
-        y_noise.append(y1)
-        th_noise.append(th[i] * error_th)
+        Tcurr_world = np.array([[cos(pcurr[2]), -sin(pcurr[2]), pcurr[0]],
+                                [sin(pcurr[2]),  cos(pcurr[2]), pcurr[0]],
+                                [0, 0, 1]])
+        Tnext_world = np.array([[cos(pnext[2]), -sin(pnext[2]), pnext[0]],
+                                [sin(pnext[2]),  cos(pnext[2]), pnext[0]],
+                                [0, 0, 1]])
+        Tnext_curr = np.dot(np.linalg.inv(Tcurr_world), Tnext_world)
 
-    return x_noise, y_noise, th_noise
+        del_x = Tnext_curr[0][2]
+        del_y = Tnext_curr[1][2]
+        del_th = atan2(Tnext_curr[1, 0], Tnext_curr[0, 0])
+
+        # Adding noise
+        if (i<5):
+            x_noise = 0; y_noise = 0; th_noise = 0
+        else:
+            x_noise = np.random.normal(0, std)
+            y_noise = np.random.normal(0, std)
+            th_noise = np.random.normal(0, std)
+        
+        del_xn = del_x + x_noise
+        del_yn = del_y + y_noise
+        del_thn = del_th + th_noise
+
+        # Converting to Tnext_curr'
+        Tnext_curr_n = np.array([[cos(del_thn), -sin(del_thn), del_xn],
+                                [sin(del_thn),  cos(del_thn), del_yn],
+                                [0, 0, 1]])
+
+        pcurr = (xN[i-1], yN[i-1], thN[i-1])
+        Tcurr_wN = np.array([[cos(pcurr[2]), -sin(pcurr[2]), pcurr[0]],
+                                [sin(pcurr[2]),  cos(pcurr[2]), pcurr[0]],
+                                [0, 0, 1]])
+        Tnext_wN = np.dot(Tcurr_wN, Tnext_curr_n)
+
+        x2N = Tnext_wN[0][2]
+        y2N = Tnext_wN[1][2]
+        theta2N = atan2(Tnext_wN[1, 0], Tnext_wN[0, 0])
+
+        xN[i] = x2N; yN[i] = y2N; thN[i] = theta2N
+
+    return xN, yN, thN
     
 
 def relative_position(x, y, th):

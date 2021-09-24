@@ -1,77 +1,71 @@
 import numpy as np
 import cv2
 import matplotlib.pyplot as plt
+from descartes import PolygonPatch
 from numpy.core.numeric import full
+from scipy.interpolate import BarycentricInterpolator
+import sys
 
+sys.path.append('sideProjects/GIS_Extraction')
+import csv_reader as GIS
 
 # local packages
 from lib.utility import *
 
+
 class world:
-    def __init__(self, background: str, landmarks: str, save_path: bool = False, load_path: bool = False, path_name: str = 'Aarhus_path1.json'):
-       
+    def __init__(self, OSM_polygons: str, OSM_features: str, landmarks: str, save_path: bool = False, load_path: bool = False, path_name: str = 'Aarhus_path1.json'):
+        """
+        csv_info takes in csv file for landmarks and csv file for polygons
+        """
+
         self.load_path = load_path
         self.save_path = save_path
         self.path_name = path_name
-        
-       # Loading map from GIS data as a binary image
-        img = cv2.imread(background, cv2.IMREAD_GRAYSCALE)
-        img = cv2.threshold(img, 100, 255, cv2.THRESH_BINARY)[1]
-        #self.background = cv2.threshold(img, 127, 1, cv2.THRESH_BINARY)[1]
 
-        # Masking outside box to be black
-        mask = np.zeros_like(img)
-        mask = cv2.rectangle(mask, (80,58), (576,427), (255, 255, 255), -1)
-        img = cv2.bitwise_and(img, mask)
-        self.crop_img = img[56:429, 78:578]
+        self.aarhus = GIS.read_csv(OSM_polygons, OSM_features)
+        self.rowPoints, self.rowPoly = self.aarhus.read()
+        self.poly_stack = self.aarhus.squeeze_polygons(self.rowPoly, plot=False)
+
 
         if self.load_path:
             self.loaded_route = load_from_json('./sideProjects/robosim/data/robopath/'+self.path_name)
             self.x_odo, self.y_odo, self.th_odo = zip(*np.asarray_chkfinite(self.loaded_route))
             
             
-        # Loading landmarks that was saved using GIS data
+        # Loading landmarks that was saved using GIS data (Not working ATM)
         with open(landmarks, 'r') as f:
             self.landmarks = np.genfromtxt(f, delimiter=',')
+        
 
-
-    def draw_points(self, event, x, y, flags, param):
-        """ Draws circle when clicking (left click) on the image """
-
-        if event == cv2.EVENT_LBUTTONDOWN:
-
-            cv2.circle(self.grid_copy, (x,y), 5, (0, 255, 0), -1)
-            cv2.imshow('Robot_route', self.grid_copy)
-            self.route.append([x,y])
-
-    @staticmethod
-    def robot_heading(x, y, theta, length: float = 5, width: float = 0.05):
-        """
-        Method that plots the heading of every pose
-        """
-        x = x[1:-1]
-        y = y[1:-1]
-        theta = theta[1:-1]
-
-        terminus_x = x + length * np.cos(theta)
-        terminus_y = y + length * np.sin(theta)
-        plt.plot([x, terminus_x], [y, terminus_y])
+    # Draw points using mouse for plt figures
+    def get_points(self, event):
+        x = float(event.xdata)
+        y = float(event.ydata)
+        self.route.append([x, y])
 
 
     def make_robot_path(self, plot_route: bool = True):
-        self.grid = np.asarray(self.crop_img)
-        self.grid_copy = self.grid.copy()
-        self.route = []
+        """[summary]
 
-        # If we do not have a robot path saved in 'sideProjects/robosim/data'
+        Args:
+            plot_route (bool, optional): [description]. Defaults to True.
+        """        
+
+        # If we do not have a robot path saved in 'sideProjects/robosim/data' then set 'save_path=True'
         if self.save_path:
-            cv2.namedWindow('Robot_route')
-            cv2.imshow('Robot_route',self.grid_copy)
-            cv2.setMouseCallback('Robot_route', self.draw_points, self.grid_copy)
 
-            cv2.waitKey(0)
-            cv2.destroyAllWindows()
+            self.route = []
+            fig = plt.figure(1)
 
+            for id, _ in enumerate(self.poly_stack):
+                ax = fig.add_subplot()
+                patch = PolygonPatch(self.poly_stack[id].buffer(0))
+                ax.add_patch(patch)
+                ax.plot()
+
+            fig.canvas.mpl_connect('button_press_event', self.get_points)
+            plt.show(1)
 
             # calculating angles between all points and concatenating
             angles = calculate_angles(self.route)
@@ -90,32 +84,53 @@ class world:
 
         # Odometry drift
         self.x_odo_noisy, self.y_odo_noisy, self.th_odo_noisy = odometry_drift_simple(self.x_odo, self.y_odo, self.th_odo)
+        # self.x_odo_noisy, self.y_odo_noisy, self.th_odo_noisy = odometry_drift_simple(self.x_odo, self.y_odo, self.th_odo)
+
+        # Add GNSS points
+        GNSS_points = []
+        for i in range(len(self.x_odo)):
+            if (i % 70 == 0):
+                # print('Adding GPS point {}'.format(i))
+                x_gps, y_gps = add_GNSS_noise(self.x_odo[i], self.y_odo[i], std_gps_x=0.00001, std_gps_y=0.00001)
+                GNSS_points.append([x_gps, y_gps])
+
+
+        # Visualization
         if plot_route:
             
-            plt.plot(self.x_odo, self.y_odo, label='Original route')
-            plt.plot(self.x_odo_noisy, self.y_odo_noisy, label='Noise route')
 
+            self.aarhus.squeeze_polygons(self.rowPoly, plot=True)
+
+            plt.scatter(self.landmarks[:,0], self.landmarks[:,1], label='Landmarks')
+            plt.plot(self.x_odo, self.y_odo, label='Groundtruth')
+            plt.plot(self.x_odo_noisy, self.y_odo_noisy, label='Noise route')
+            plt.scatter(np.asarray_chkfinite(GNSS_points)[:,0], np.asarray_chkfinite(GNSS_points)[:,1], marker='x', color='red',
+                                             label='GPS points')
+
+
+            plt.xlim([min(self.x_odo), max(self.x_odo)])
+            plt.ylim([min(self.y_odo), max(self.y_odo)])
+
+            # For debugging purposes of angle calculations
             if False:
                 px, py, pth = zip(*poses)
                 px = np.asarray_chkfinite(px)
                 py = np.asarray_chkfinite(py)
                 pth = np.asarray_chkfinite(pth)
                 
-                self.robot_heading(px, py, pth)
+                robot_heading(px, py, pth)
             
-            
-            plt.imshow(self.crop_img, cmap='gray')
             plt.legend(loc="upper left")
             plt.show()
 
 
-
 def main():
-    # print(cv2.__version__)
-    map = 'sideProjects/GIS_Extraction/plots/GIS_map3.png'
+
+    filenamePoints = 'sideProjects/GIS_Extraction/data/aarhus_features.csv'
+    filenamePoly = 'sideProjects/GIS_Extraction/data/aarhus_polygons.csv'
     landmarks_file = 'sideProjects/GIS_Extraction/landmarks/landmarks_points.csv'
 
-    show = world(map, landmarks_file, save_path=True, load_path=False)
+    show = world(filenamePoints, filenamePoly, landmarks_file, save_path=False, load_path=True)
     show.make_robot_path()
   
 

@@ -62,8 +62,8 @@ class read_csv():
         return self.rowPoints, self.rowPoly
 
         
-    def squeeze_polygons(self, polygon):
-        fig = plt.figure()
+    def squeeze_polygons(self, polygon, plot: bool):
+        
 
         poly_stack = []
         poly_area = []
@@ -72,28 +72,31 @@ class read_csv():
             x = poly[0::2]
             y = poly[1::2]
             points = np.stack((x,y), axis=-1)
-            polygon_final = sg.Polygon(np.squeeze(points))
+            self.polygon_final = sg.Polygon(np.squeeze(points))
 
             # Debug
-            area = polygon_final.area
+            area = self.polygon_final.area
             poly_area.append(area)
             if area < 1.0220626785217238e-05:
-                poly_stack.append(polygon_final)
+                poly_stack.append(self.polygon_final)
 
         #print('min area of poly: {}, max area: {}, \nmean area: {}'.format(min(poly_area),max(poly_area), np.mean(poly_area)))
+        if plot:
+            fig = plt.figure()
+            for id, poly in enumerate(poly_stack):
+                ax = fig.add_subplot()
+                patch = PolygonPatch(poly_stack[id].buffer(0))
+                ax.add_patch(patch)
+        else:
+            return poly_stack
 
-
-        for id, poly in enumerate(poly_stack):
-            ax = fig.add_subplot()
-            patch = PolygonPatch(poly_stack[id].buffer(0))
-            ax.add_patch(patch)
 
     def export_landmarks(self, filename: str = 'sideProjects/GIS_Extraction/landmarks/landmarks_points.csv'):
         return np.savetxt(filename, self.rowPoints, delimiter=",")
 
     def plot_map(self, save: bool = 0, filename: str = 'sideProjects/GIS_Extraction/plots/GIS_map'):
 
-        self.squeeze_polygons(self.rowPoly)
+        self.squeeze_polygons(self.rowPoly, plot=True)
 
         plt.scatter(self.rowPoints[:,0],self.rowPoints[:,1], zorder=2, s=10)
         frame = plt.gca()
@@ -117,7 +120,7 @@ def main():
     aarhus = read_csv(filenamePoints, filenamePoly)
     _, rowpoints = aarhus.read()
     aarhus.plot_map(save=0)
-    aarhus.export_landmarks()
+    # aarhus.export_landmarks()
 
 if __name__ == "__main__":
     main()
