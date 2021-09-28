@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from math import atan2, pi, cos, sin
+from scipy import interpolate
+from math import atan2, pi, cos, sin, sqrt, ceil
 import json
 
 def do_rom_splines(route):
@@ -8,24 +9,39 @@ def do_rom_splines(route):
     C = []
 
     for i in range(size - 3):
-        c = rom_spline(route[i], route[i+1], route[i+2], route[i+3])
+        diffs = np.linalg.norm(np.diff(route[i:i+3], axis=0), axis = 1)
 
-        # Ingoring NaN values
-        if ~(np.isnan(np.sum(c))):
-            C.extend(c)
+        if ~(np.any(diffs) < 0.5):
+            c = rom_spline(route[i], route[i+1], route[i+2], route[i+3])
+
+            # Ingoring NaN values
+            if ~(np.isnan(np.sum(c))):
+                C.extend(c) 
     
     return C
 
-def rom_spline(P0: float, P1: float, P2: float, P3: float, t: tuple = (0, 0.33, 0.66, 1), alpha: float = 0.5):
+def rom_spline(P0: float, P1: float, P2: float, P3: float, t: tuple = (0, 0.33, 0.66, 1), alpha: float = 0.5, N: int = None, d: float = 0.01):
 
     P0, P1, P2, P3 = map(np.array, [P0, P1, P2, P3])
+    
+    if N == None:
+        dist = np.linalg.norm(P1 - P2)
+        N = ceil(dist / d)
+
+    if N > 40:
+        N = 40
+    elif N < 30:
+        N = 30
 
     t0 = 0
     t1 = traj(P0, P1, t0, alpha)
     t2 = traj(P1, P2, t1, alpha)
     t3 = traj(P2, P3, t2, alpha)
 
-    t = np.linspace(t1, t2, 100)
+    # t = [(t2 - t1) * n / (N - 1) + t1 for n in range(N)]
+    
+    t = np.linspace(t1, t2, N, dtype=np.float128)
+    
     t = t.reshape(len(t), 1)
 
     A1 = (t1 - t)/(t1 - t0)*P0 + (t - t0)/(t1 - t0)*P1
@@ -43,8 +59,8 @@ def traj(Pi, Pj, t, alpha):
 
     xi, yi, thi = Pi
     xj, yj, thj = Pj
-            
-    return ( ( (xj-xi)**2 + (yj-yi)**2 + (thj - thi)**2 )**0.5 )**alpha + t
+
+    return ( ( sqrt((xj-xi)**2 + (yj-yi)**2 + (thj-thi)**2 )**0.5 ))**alpha + t
 
 
 def calculate_angles(route):
@@ -102,6 +118,7 @@ def add_GNSS_noise(x, y, std_gps_x: float = 0.0001, std_gps_y: float = 0.001):
     y_noise = y + noise_y_dir
     return x_noise, y_noise
 
+# This function is depricated
 def odometry_drift_simple(x, y, th, drift_constant_std: float = 0.0000001):
     """ 
     Simply adding a constant to the wheels to simulate drift 
@@ -146,7 +163,7 @@ def reduce_dimensions(route):
     reduced = []
 
     for i in range(len(route[0,:])):
-        if (i % 5 == 0):
+        if (i % 15 == 0):
             reduced.append(route[:,i])
 
     print('Reduced size of path from {} to {}'.format(len(route[1]), np.shape(reduced)[0]))
@@ -172,61 +189,66 @@ def load_from_json(name):
         return json.load(f)
 
 
-#######################
-# BELOW IS DEPRECATED #
 
-def odometry_drift(x, y, th, std: float = 0.03):
-    
-    x, y, th = convert_to_np_array(x, y, th)
-    xN = np.zeros(len(x)); yN = np.zeros(len(y)); thN = np.zeros(len(th))
-    xN[0] = x[0]; yN[0] = y[0]; thN[0] = th[0]
+def addNoise(X, Y, THETA):
 
-    for i in range(1, len(x)):
-        pcurr = (x[i-1], y[i-1], th[i-1])
-        pnext = (x[i], y[i], th[i])
-        
-        Tcurr_world = np.array([[cos(pcurr[2]), -sin(pcurr[2]), pcurr[0]],
-                                [sin(pcurr[2]),  cos(pcurr[2]), pcurr[0]],
-                                [0, 0, 1]])
-        Tnext_world = np.array([[cos(pnext[2]), -sin(pnext[2]), pnext[0]],
-                                [sin(pnext[2]),  cos(pnext[2]), pnext[0]],
-                                [0, 0, 1]])
-        Tnext_curr = np.dot(np.linalg.inv(Tcurr_world), Tnext_world)
+    """Takes in odometry values and adding noise in relative pose
 
-        del_x = Tnext_curr[0][2]
-        del_y = Tnext_curr[1][2]
-        del_th = atan2(Tnext_curr[1, 0], Tnext_curr[0, 0])
+    Returns:
+        xN, yN, thN: The corresponding odometry values with added noise
+    """    
 
-        # Adding noise
-        if (i<5):
-            x_noise = 0; y_noise = 0; th_noise = 0
+    xN = np.zeros(len(X)); yN = np.zeros(len(Y)); tN = np.zeros(len(THETA))
+    xN[0] = X[0]; yN[0] = Y[0]; tN[0] = THETA[0]
+
+    for i in range(1, len(X)):
+        # Get T2_1
+        p1 = (X[i-1], Y[i-1], THETA[i-1])
+        p2 = (X[i], Y[i], THETA[i])
+        T1_w = np.array([[cos(p1[2]), -sin(p1[2]), p1[0]], 
+                         [sin(p1[2]), cos(p1[2]), p1[1]], 
+                         [0, 0, 1]])
+
+        T2_w = np.array([[cos(p2[2]), -sin(p2[2]), p2[0]], 
+                         [sin(p2[2]), cos(p2[2]), p2[1]], 
+                         [0, 0, 1]])
+
+        T2_1 = np.dot(np.linalg.inv(T1_w), T2_w)
+        del_x = T2_1[0][2]
+        del_y = T2_1[1][2]
+        del_theta = atan2(T2_1[1, 0], T2_1[0, 0])
+
+        # Add noise
+        if(i<5):
+            xNoise = 0; yNoise = 0; tNoise = 0
         else:
-            x_noise = np.random.normal(0, std)
-            y_noise = np.random.normal(0, std)
-            th_noise = np.random.normal(0, std)
-        
-        del_xn = del_x + x_noise
-        del_yn = del_y + y_noise
-        del_thn = del_th + th_noise
+            xNoise = np.random.normal(0.0, 0.000035); 
+            yNoise = np.random.normal(0.0, 0.000035); 
+            tNoise = np.random.normal(0.0, 0.000035)
 
-        # Converting to Tnext_curr'
-        Tnext_curr_n = np.array([[cos(del_thn), -sin(del_thn), del_xn],
-                                [sin(del_thn),  cos(del_thn), del_yn],
-                                [0, 0, 1]])
+        del_xN = del_x + xNoise; del_yN = del_y + yNoise; del_thetaN = del_theta + tNoise
 
-        pcurr = (xN[i-1], yN[i-1], thN[i-1])
-        Tcurr_wN = np.array([[cos(pcurr[2]), -sin(pcurr[2]), pcurr[0]],
-                                [sin(pcurr[2]),  cos(pcurr[2]), pcurr[0]],
-                                [0, 0, 1]])
-        Tnext_wN = np.dot(Tcurr_wN, Tnext_curr_n)
+        # Convert to T2_1'
+        T2_1N = np.array([[cos(del_thetaN), -sin(del_thetaN), del_xN], 
+                           [sin(del_thetaN), cos(del_thetaN), del_yN], 
+                           [0, 0, 1]])
 
-        x2N = Tnext_wN[0][2]
-        y2N = Tnext_wN[1][2]
-        theta2N = atan2(Tnext_wN[1, 0], Tnext_wN[0, 0])
+        # Get T2_w' = T1_w' . T2_1'
+        p1 = (xN[i-1], yN[i-1], tN[i-1])
+        T1_wN = np.array([[cos(p1[2]), -sin(p1[2]), p1[0]], 
+                          [sin(p1[2]), cos(p1[2]), p1[1]], 
+                          [0, 0, 1]])
 
-        xN[i] = x2N; yN[i] = y2N; thN[i] = theta2N
+        T2_wN = np.dot(T1_wN, T2_1N)
 
-    return xN, yN, thN
+        # Get x2', y2', theta2'
+        x2N = T2_wN[0][2]
+        y2N = T2_wN[1][2]
+        theta2N = atan2(T2_wN[1, 0], T2_wN[0, 0])
+
+        xN[i] = x2N; yN[i] = y2N; tN[i] = theta2N
+
+    return xN, yN, tN
     
 
 def relative_position(x, y, th):

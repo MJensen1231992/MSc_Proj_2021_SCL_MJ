@@ -1,15 +1,12 @@
 import numpy as np
-import cv2
 import matplotlib.pyplot as plt
 from descartes import PolygonPatch
 from numpy.core.numeric import full
-from scipy.interpolate import BarycentricInterpolator
 import sys
-
 sys.path.append('sideProjects/GIS_Extraction')
-import csv_reader as GIS
 
 # local packages
+import csv_reader as GIS
 from lib.utility import *
 
 
@@ -29,11 +26,17 @@ class world:
 
 
         if self.load_path:
-            self.loaded_route = load_from_json('./sideProjects/robosim/data/robopath/'+self.path_name)
-            self.x_odo, self.y_odo, self.th_odo = zip(*np.asarray_chkfinite(self.loaded_route))
+            loaded_route = load_from_json('./sideProjects/robosim/data/robopath/'+self.path_name)
+            temp_x = np.asfarray(loaded_route[0]); temp_y = np.asfarray(loaded_route[1]); temp_th = np.asfarray(loaded_route[2])
+            self.loaded_route = [[pose_x, pose_y, pose_th] for pose_x, pose_y, pose_th in zip(temp_x, temp_y, temp_th)]
+
+            full_route = do_rom_splines(np.asfarray(self.loaded_route, dtype=np.float128))
+            temp_x1, temp_y1, temp_th1 = zip(*full_route)
+            reduced_path = reduce_dimensions(np.array([temp_x1, temp_y1, temp_th1]))
+            self.x_odo, self.y_odo, self.th_odo = zip(*reduced_path)
+
             
-            
-        # Loading landmarks that was saved using GIS data (Not working ATM)
+        # Loading landmarks that was saved using GIS data 
         with open(landmarks, 'r') as f:
             self.landmarks = np.genfromtxt(f, delimiter=',')
         
@@ -54,7 +57,7 @@ class world:
 
         # If we do not have a robot path saved in 'sideProjects/robosim/data' then set 'save_path=True'
         if self.save_path:
-
+            
             self.route = []
             fig = plt.figure(1)
 
@@ -75,21 +78,22 @@ class world:
             # Smoothening of route using splines
             full_route = do_rom_splines(poses)
             self.x_odo, self.y_odo, self.th_odo = zip(*full_route)
+            reduced_path = reduce_dimensions(np.array([self.x_odo, self.y_odo, self.th_odo]))
+            self.x_odo, self.y_odo, self.th_odo = zip(*reduced_path)
 
             # Saving the reduced route to json file 
-            json_path = reduce_dimensions(np.array([self.x_odo, self.y_odo, self.th_odo]))
+            poses_x, poses_y, poses_th = zip(*poses)
+            json_path = np.array([poses_x, poses_y, poses_th])
             json_path1 = json_path.tolist()
             save_to_json(json_path1,'./sideProjects/robosim/data/robopath/'+self.path_name)
-        
-
+    
         # Odometry drift
         self.x_odo_noisy, self.y_odo_noisy, self.th_odo_noisy = odometry_drift_simple(self.x_odo, self.y_odo, self.th_odo)
-        # self.x_odo_noisy, self.y_odo_noisy, self.th_odo_noisy = odometry_drift_simple(self.x_odo, self.y_odo, self.th_odo)
 
         # Add GNSS points
         GNSS_points = []
         for i in range(len(self.x_odo)):
-            if (i % 70 == 0):
+            if (i % 30 == 0):
                 # print('Adding GPS point {}'.format(i))
                 x_gps, y_gps = add_GNSS_noise(self.x_odo[i], self.y_odo[i], std_gps_x=0.00001, std_gps_y=0.00001)
                 GNSS_points.append([x_gps, y_gps])
@@ -98,7 +102,6 @@ class world:
         # Visualization
         if plot_route:
             
-
             self.aarhus.squeeze_polygons(self.rowPoly, plot=True)
 
             plt.scatter(self.landmarks[:,0], self.landmarks[:,1], label='Landmarks')
@@ -107,13 +110,12 @@ class world:
             plt.scatter(np.asarray_chkfinite(GNSS_points)[:,0], np.asarray_chkfinite(GNSS_points)[:,1], marker='x', color='red',
                                              label='GPS points')
 
-
             plt.xlim([min(self.x_odo), max(self.x_odo)])
             plt.ylim([min(self.y_odo), max(self.y_odo)])
 
             # For debugging purposes of angle calculations
             if False:
-                px, py, pth = zip(*poses)
+                px, py, pth = zip(*self.loaded_route)
                 px = np.asarray_chkfinite(px)
                 py = np.asarray_chkfinite(py)
                 pth = np.asarray_chkfinite(pth)

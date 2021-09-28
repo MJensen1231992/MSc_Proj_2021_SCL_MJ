@@ -64,7 +64,6 @@ class read_csv():
         
     def squeeze_polygons(self, polygon, plot: bool):
         
-
         poly_stack = []
         poly_area = []
 
