@@ -92,7 +92,7 @@ def rad2deg(theta):
 
     return 180.0 * theta / pi
 
-def robot_heading(x, y, theta, length: float = 0.00001, width: float = 0.00001):
+def robot_heading(x, y, theta, length: float = 0.1, width: float = 0.1):
         """
         Method that plots the heading of every pose
         """
@@ -104,7 +104,7 @@ def robot_heading(x, y, theta, length: float = 0.00001, width: float = 0.00001):
         terminus_y = y + length * np.sin(theta)
         plt.plot([x, terminus_x], [y, terminus_y])
 
-def add_GNSS_noise(x, y, std_gps_x: float = 0.0001, std_gps_y: float = 0.001):
+def add_GNSS_noise(x, y, std_gps_x: float = 0.33, std_gps_y: float = 0.1):
     """Adding noise to GNSS(GPS) points from groundt truht
 
     Args:
@@ -119,7 +119,7 @@ def add_GNSS_noise(x, y, std_gps_x: float = 0.0001, std_gps_y: float = 0.001):
     return x_noise, y_noise
 
 # This function is depricated
-def odometry_drift_simple(x, y, th, drift_constant_std: float = 0.0000001):
+def odometry_drift_simple(x, y, th, drift_constant_std: float = 0.33):
     """ 
     Simply adding a constant to the wheels to simulate drift 
     The drift is computed using a normal gaussian distribution with standard deviation from the constant drift_constant_std
@@ -145,7 +145,7 @@ def odometry_drift_simple(x, y, th, drift_constant_std: float = 0.0000001):
         y_noise.append(y_new)
         th_noise.append(th_new)
 
-        noise += np.random.normal(0.000001, drift_constant_std)
+        noise += np.random.normal(0.33, drift_constant_std)
 
     return x_noise, y_noise, th_noise
     
@@ -180,15 +180,13 @@ def convert_to_np_array(x, y, th):
 
     return x_new, y_new, th_new
 
-def save_to_json(l, name):
+def save_to_json(l, name, indent: int = None):
     with open(name, 'w') as f:
-        json.dump(l, f)
+        json.dump(l, f, indent=indent)
 
 def load_from_json(name):
     with open(name, 'r') as f:
         return json.load(f)
-
-
 
 def addNoise(X, Y, THETA):
 
@@ -222,9 +220,9 @@ def addNoise(X, Y, THETA):
         if(i<5):
             xNoise = 0; yNoise = 0; tNoise = 0
         else:
-            xNoise = np.random.normal(0.0, 0.000035); 
-            yNoise = np.random.normal(0.0, 0.000035); 
-            tNoise = np.random.normal(0.0, 0.000035)
+            xNoise = np.random.normal(0.0, 0.033); 
+            yNoise = np.random.normal(0.0, 0.033); 
+            tNoise = np.random.normal(0.0, 0.033)
 
         del_xN = del_x + xNoise; del_yN = del_y + yNoise; del_thetaN = del_theta + tNoise
 

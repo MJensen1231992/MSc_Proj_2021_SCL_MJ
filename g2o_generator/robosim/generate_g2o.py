@@ -23,7 +23,7 @@ class g2o:
         reduced_path = reduce_dimensions(np.array([temp_x1, temp_y1, temp_th1]))
 
         self.x, self.y, self.th = zip(*np.asarray_chkfinite(reduced_path, dtype=np.float64))
-        self.x = self.x[1:-2]; self.y = self.y[1:-2]; self.th = self.th[1:-2]
+        # self.x = self.x[1:-2]; self.y = self.y[1:-2]; self.th = self.th[1:-2]
         self.xN, self.yN, self.thN = addNoise(self.x, self.y, self.th)
 
         with open(landmarks, 'r') as f:
@@ -49,12 +49,12 @@ class g2o:
         if True:
 
             # Scale of map
-            minlat = min(self.y)
-            minlon = min(self.x)
-            maxlat = max(self.y)
-            maxlon = max(self.x)             
+            miny = min(self.y)
+            minx = min(self.x)
+            maxy = max(self.y)
+            maxx = max(self.x)             
 
-            # print("Diagonal distance of map {:.2f} meters".format(self.from_utm(minlat, maxlat, minlon, maxlon)))
+            # print("Diagonal distance of map {:.2f} meters".format(np.linalg.norm(np.array([minx,miny]) - np.array([maxx, maxy]))))
             # print("Diagonal distance of map {:.10f} in utm".format(np.linalg.norm(np.array([minlon, minlat]) - np.array([maxlon, maxlat]))))
 
             # Plotting:
@@ -79,7 +79,7 @@ class g2o:
         return T
 
     @staticmethod
-    def GNSS_reading(x_odo, y_odo, std_gps_x: float = 0.0001, std_gps_y: float = 0.0001):
+    def GNSS_reading(x_odo, y_odo, std_gps_x: float = 0.33, std_gps_y: float = 0.33):
         # Add GNSS points
         x_gps = []
         y_gps = []
@@ -157,7 +157,7 @@ class g2o:
 
         # Gotten from the mean distance of all points to have to idea of the distance to use in this scale
         # lc_range = 0.0003285251851053485 # Qualitative 
-        lc_range = 0.00013951 # 10 meters
+        lc_range = 10 # 10 meters
 
 
         for pose_id in range(len(x)):

@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from descartes import PolygonPatch
 from numpy.core.numeric import full
 import sys
-sys.path.append('sideProjects/GIS_Extraction')
+sys.path.append('g2o_generator/GIS_Extraction')
 
 # local packages
 import csv_reader as GIS
@@ -26,7 +26,7 @@ class world:
 
 
         if self.load_path:
-            loaded_route = load_from_json('./sideProjects/robosim/data/robopath/'+self.path_name)
+            loaded_route = load_from_json('./g2o_generator/robosim/data/robopath/'+self.path_name)
             temp_x = np.asfarray(loaded_route[0]); temp_y = np.asfarray(loaded_route[1]); temp_th = np.asfarray(loaded_route[2])
             self.loaded_route = [[pose_x, pose_y, pose_th] for pose_x, pose_y, pose_th in zip(temp_x, temp_y, temp_th)]
 
@@ -85,7 +85,7 @@ class world:
             poses_x, poses_y, poses_th = zip(*poses)
             json_path = np.array([poses_x, poses_y, poses_th])
             json_path1 = json_path.tolist()
-            save_to_json(json_path1,'./sideProjects/robosim/data/robopath/'+self.path_name)
+            save_to_json(json_path1,'./g2o_generator/robosim/data/robopath/'+self.path_name)
     
         # Odometry drift
         self.x_odo_noisy, self.y_odo_noisy, self.th_odo_noisy = odometry_drift_simple(self.x_odo, self.y_odo, self.th_odo)
@@ -128,11 +128,11 @@ class world:
 
 def main():
 
-    filenamePoints = 'sideProjects/GIS_Extraction/data/aarhus_features.csv'
-    filenamePoly = 'sideProjects/GIS_Extraction/data/aarhus_polygons.csv'
-    landmarks_file = 'sideProjects/GIS_Extraction/landmarks/landmarks_points.csv'
+    filenamePoints = 'g2o_generator/GIS_Extraction/data/aarhus_features.csv'
+    filenamePoly = 'g2o_generator/GIS_Extraction/data/aarhus_polygons.csv'
+    landmarks_file = 'g2o_generator/GIS_Extraction/landmarks/landmarks_points.csv'
 
-    show = world(filenamePoints, filenamePoly, landmarks_file, save_path=False, load_path=True)
+    show = world(filenamePoints, filenamePoly, landmarks_file, save_path=True, load_path=False)
     show.make_robot_path()
   
 
