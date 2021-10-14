@@ -126,7 +126,7 @@ def add_GNSS_noise(x, y, std_gps_x: float = 0.33, std_gps_y: float = 0.1):
 # This function is depricated
 def odometry_drift_simple(x, y, th, drift_constant_std: float = 0.33):
     """ 
-    Simply adding a constant to the wheels to simulate drift 
+    Adding a constant to the wheels to simulate drift 
     The drift is computed using a normal gaussian distribution with standard deviation from the constant drift_constant_std
 
     return:
@@ -209,6 +209,13 @@ def distance_traveled(x,y):
     distance = sum([np.linalg.norm(pt1 - pt2) for pt1, pt2 in zip(route[:-1], route[1:])])
 
     return distance
+
+def landmark_noise(landmarks, std: float = 0.01):
+    for landmark in landmarks.values():
+        for pos in landmark:
+            posN = [np.random.normal(0, std), np.random.normal(0, std)]
+            return 
+
 
 def addNoise(x, y, th):
 

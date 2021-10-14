@@ -13,7 +13,7 @@ import create_world as CW
 import csv_reader as GIS
 
 class g2o:
-    def __init__(self, odometry_file):
+    def __init__(self, odometry_file, filenamePoints, filenamePoly, filelandmarks):
 
         self.pose_pose, self.pose_landmark = [], []
 
@@ -30,18 +30,16 @@ class g2o:
         self.x, self.y, self.th = zip(*np.asarray_chkfinite(reduced_path, dtype=np.float64))
         self.xN, self.yN, self.thN = addNoise(self.x, self.y, self.th)
         print("Distance traveled: {:.0f} in meters".format(distance_traveled(self.x,self.y)))
+
         # GPS on ground truth
         self.x_gps, self.y_gps = g2o.GNSS_reading(self.x, self.y)
 
-        # For plotting polygons
-        filenamePoints = 'g2o_generator/GIS_Extraction/data/aarhus_features_v2.csv'
-        filenamePoly = 'g2o_generator/GIS_Extraction/data/aarhus_polygons_v2.csv'
-        filelandmark = 'g2o_generator/GIS_Extraction/landmarks/landmarks_w_types.json'
+        
         self.aarhus = GIS.read_csv(filenamePoints, filenamePoly)
         _, self.rowPoly = self.aarhus.read()
-        self.landmarks = load_from_json(filelandmark)
-        
-        print(self.landmarks)
+        landmarks = load_from_json(filelandmarks)
+        self.landmarks = landmark_noise(landmarks)
+
     
     def generate_g2o(self, plot: bool = True):
 
@@ -295,8 +293,11 @@ class g2o:
 
 if __name__ == '__main__':
 
+    filenamePoints = 'g2o_generator/GIS_Extraction/data/aarhus_features_v2.csv'
+    filenamePoly = 'g2o_generator/GIS_Extraction/data/aarhus_polygons_v2.csv'
+    filelandmarks = 'g2o_generator/GIS_Extraction/landmarks/landmarks_w_types.json'
     odometry_file = './g2o_generator/robosim/data/robopath/Aarhus_path1.json'
-    genG2O = g2o(odometry_file)
+    genG2O = g2o(odometry_file, filenamePoints, filenamePoly, filelandmarks)
     genG2O.ground_truth()
     # genG2O.plot_constraints()
     genG2O.generate_g2o(plot=True)

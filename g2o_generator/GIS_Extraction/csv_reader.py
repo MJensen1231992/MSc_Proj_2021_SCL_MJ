@@ -54,7 +54,7 @@ class read_csv():
                                 self.rowPoints[feature].append(([xutm, yutm]))
 
         # Saveing landmarks as json                            
-        if False:
+        if True:
             save_to_json(self.rowPoints,'./g2o_generator/GIS_Extraction/landmarks/landmarks_w_types.json', indent=4)
 
         # Polygons contains polygons and if they are buildings
@@ -141,9 +141,6 @@ class read_csv():
 
         if show:
             plt.show()
-    
-    def export_landmarks(self, filename: str = 'g2o_generator/GIS_Extraction/landmarks/landmarks_points.csv'):
-        return np.savetxt(filename, self.rowPoints, delimiter=",")
 
     @staticmethod
     def to_utm(lat, lon):
@@ -156,8 +153,8 @@ def main():
     filenamePoly = 'g2o_generator/GIS_Extraction/data/aarhus_polygons_v2.csv'
     aarhus = read_csv(filenamePoints, filenamePoly)
     _, _ = aarhus.read()
-    aarhus.plot_map(save=0, show=True)
-    # aarhus.export_landmarks()
+    aarhus.plot_map(save=0, show=False)
+
 
 if __name__ == "__main__":
     main()
