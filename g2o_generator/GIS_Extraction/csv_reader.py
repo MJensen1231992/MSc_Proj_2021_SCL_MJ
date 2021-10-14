@@ -1,9 +1,11 @@
 import csv
 import os
 import sys
+from matplotlib.colors import ListedColormap
 
 import matplotlib.pyplot as plt
 import numpy as np
+from numpy.core.function_base import linspace
 import shapely.geometry as sg
 import utm
 from descartes import PolygonPatch
@@ -30,7 +32,7 @@ class read_csv():
         self.rowPoints = {}
         self.rowPoly = []
 
-        self.features = ['tree', 'traffic_signals', 'bench', 'bin', 'fountain', 'statue', 'bump']
+        self.features = ['"tree"', 'traffic_signals', 'bin', 'bench', 'fountain', 'statue']#, 'bump']
         # rowPoints will have format: [X,Y,OTHER_TAG]
         #                             [. .      .]
         #                             [. .      .]
@@ -49,7 +51,7 @@ class read_csv():
                         for feature in self.features:
                             if feature in row[2]:
                                 self.rowPoints.setdefault(feature, [])
-                                self.rowPoints[feature].append(np.array([xutm, yutm]))
+                                self.rowPoints[feature].append(([xutm, yutm]))
 
         # Saveing landmarks as json                            
         if False:
@@ -108,36 +110,37 @@ class read_csv():
         else:
             return poly_stack
 
-    def plot_map(self, save: bool = 0, filename: str = 'g2o_generator/GIS_Extraction/plots/GIS_map'):
+    def plot_map(self, show: bool = 0, save: bool = 0, filename: str = 'g2o_generator/GIS_Extraction/plots/GIS_map'):
+        
+        scalex, scaley = [], []
 
-        # self.squeeze_polygons(self.rowPoly, plot=True)
+        self.squeeze_polygons(self.rowPoly, plot=True)
 
         landmarks = self.rowPoints.items()
-        cmap = plt.get_cmap('viridis')
+        cmap = ListedColormap(["cyan", "darkblue", "magenta", "springgreen", "orange"])
         ax = plt.gca()
+        colors = cmap(np.linspace(0, 1, len(landmarks)))
 
-        colors = cmap(np.linspace(0,1, len(landmarks)))
         for idx, (key, landmark) in enumerate(landmarks):
+            fx, fy = [], []
             for pos in landmark:
-                sc = ax.scatter(pos[0],pos[1], zorder=2, s=10, color=colors[idx])
-            # ax.legend(label=key)    
-            # ax.set_label(key)
-            
-            
+                x, y = pos
+                scalex.append(x), scaley.append(y)
+                fx.append(x), fy.append(y)
+            ax.scatter(fx, fy, zorder=2, s=10, color=colors[idx], label=key)
 
-
-        # frame = plt.gca()
-        # frame.axes.get_xaxis().set_ticks([])
-        # frame.axes.get_yaxis().set_ticks([])
+        # plt.xlim(min(scalex), max(scalex))
+        # plt.ylim(min(scaley), max(scaley))
+        plt.legend()
 
         if save:
             i = 0
             while os.path.exists('{}{:d}.png'.format(filename, i)):
                 i += 1
             plt.savefig('{}{:d}.png'.format(filename, i), format='png')
-        
-        plt.legend()
-        plt.show()
+
+        if show:
+            plt.show()
     
     def export_landmarks(self, filename: str = 'g2o_generator/GIS_Extraction/landmarks/landmarks_points.csv'):
         return np.savetxt(filename, self.rowPoints, delimiter=",")
@@ -153,7 +156,7 @@ def main():
     filenamePoly = 'g2o_generator/GIS_Extraction/data/aarhus_polygons_v2.csv'
     aarhus = read_csv(filenamePoints, filenamePoly)
     _, _ = aarhus.read()
-    aarhus.plot_map(save=0)
+    aarhus.plot_map(save=0, show=True)
     # aarhus.export_landmarks()
 
 if __name__ == "__main__":

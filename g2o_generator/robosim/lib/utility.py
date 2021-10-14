@@ -73,6 +73,11 @@ def calculate_angles(route):
     
     return angles
 
+def calc_bearing(x1,y1,x2,y2):
+
+    angle = atan2((y2 - y1), (x2 - x1))
+
+    return min_theta(angle)
 
 def min_theta(theta):
     # Setting minimum angular difference 
@@ -163,7 +168,7 @@ def reduce_dimensions(route):
     reduced = []
 
     for i in range(len(route[0,:])):
-        if (i % 15 == 0):
+        if (i % 5 == 0):
             reduced.append(route[:,i])
 
     print('Reduced size of path from {} to {}'.format(len(route[1]), np.shape(reduced)[0]))
@@ -188,7 +193,24 @@ def load_from_json(name):
     with open(name, 'r') as f:
         return json.load(f)
 
-def addNoise(X, Y, THETA):
+def distance_traveled(x,y):
+    """Computing euclidean distance traveled 
+
+    Args:
+        x (tuple): [row of x values]
+        y (tuple): [row of y values]
+
+    Returns:
+        [float]: [distance traveled in meters]
+    """    
+    x = np.vstack(x)
+    y = np.vstack(y)
+    route = np.hstack((x,y))
+    distance = sum([np.linalg.norm(pt1 - pt2) for pt1, pt2 in zip(route[:-1], route[1:])])
+
+    return distance
+
+def addNoise(x, y, th):
 
     """Takes in odometry values and adding noise in relative pose
 
@@ -196,48 +218,45 @@ def addNoise(X, Y, THETA):
         xN, yN, thN: The corresponding odometry values with added noise
     """    
 
-    xN = np.zeros(len(X)); yN = np.zeros(len(Y)); tN = np.zeros(len(THETA))
-    xN[0] = X[0]; yN[0] = Y[0]; tN[0] = THETA[0]
+    xN = np.zeros(len(x)); yN = np.zeros(len(y)); tN = np.zeros(len(th))
+    xN[0] = x[0]; yN[0] = y[0]; tN[0] = th[0]
 
-    for i in range(1, len(X)):
+    for i in range(1, len(x)):
         # Get T2_1
-        p1 = (X[i-1], Y[i-1], THETA[i-1])
-        p2 = (X[i], Y[i], THETA[i])
-        T1_w = np.array([[cos(p1[2]), -sin(p1[2]), p1[0]], 
-                         [sin(p1[2]), cos(p1[2]), p1[1]], 
-                         [0, 0, 1]])
+        p1 = (x[i-1], y[i-1], th[i-1])
+        p2 = (x[i], y[i], th[i])
 
-        T2_w = np.array([[cos(p2[2]), -sin(p2[2]), p2[0]], 
-                         [sin(p2[2]), cos(p2[2]), p2[1]], 
-                         [0, 0, 1]])
+        T1_w = vec2trans(p1)
+        T2_w = vec2trans(p2)
 
-        T2_1 = np.dot(np.linalg.inv(T1_w), T2_w)
+        try:
+            T2_1 = np.linalg.inv(T1_w) @ T2_w
+        except:
+            print(f"{T2_1} is not invertible.")
         del_x = T2_1[0][2]
         del_y = T2_1[1][2]
-        del_theta = atan2(T2_1[1, 0], T2_1[0, 0])
+        del_th = atan2(T2_1[1, 0], T2_1[0, 0])
 
         # Add noise
         if(i<5):
-            xNoise = 0; yNoise = 0; tNoise = 0
+            xNoise = 0; yNoise = 0; thNoise = 0
         else:
-            xNoise = np.random.normal(0.0, 0.033); 
-            yNoise = np.random.normal(0.0, 0.033); 
-            tNoise = np.random.normal(0.0, 0.033)
+            xNoise = np.random.normal(0, 0.033); 
+            yNoise = np.random.normal(0, 0.01); 
+            thNoise = np.random.normal(0, 0.01)
 
-        del_xN = del_x + xNoise; del_yN = del_y + yNoise; del_thetaN = del_theta + tNoise
+        del_xN = del_x + xNoise; del_yN = del_y + yNoise; del_thetaN = del_th + thNoise
 
         # Convert to T2_1'
         T2_1N = np.array([[cos(del_thetaN), -sin(del_thetaN), del_xN], 
-                           [sin(del_thetaN), cos(del_thetaN), del_yN], 
-                           [0, 0, 1]])
+                         [sin(del_thetaN), cos(del_thetaN), del_yN], 
+                         [0, 0, 1]])
 
         # Get T2_w' = T1_w' . T2_1'
         p1 = (xN[i-1], yN[i-1], tN[i-1])
-        T1_wN = np.array([[cos(p1[2]), -sin(p1[2]), p1[0]], 
-                          [sin(p1[2]), cos(p1[2]), p1[1]], 
-                          [0, 0, 1]])
+        T1_wN = vec2trans(p1)
 
-        T2_wN = np.dot(T1_wN, T2_1N)
+        T2_wN = T1_wN @ T2_1N
 
         # Get x2', y2', theta2'
         x2N = T2_wN[0][2]
@@ -247,7 +266,12 @@ def addNoise(X, Y, THETA):
         xN[i] = x2N; yN[i] = y2N; tN[i] = theta2N
 
     return xN, yN, tN
-    
+
+def vec2trans(p):
+    T = np.array([[cos(p[2]), -sin(p[2]), p[0]], 
+                 [sin(p[2]),  cos(p[2]), p[1]], 
+                 [0, 0, 1]])
+    return T    
 
 def relative_position(x, y, th):
     # Route should contain x, y, theta in cartesian absolute coordinates

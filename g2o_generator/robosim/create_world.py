@@ -11,7 +11,7 @@ from lib.utility import *
 
 
 class world:
-    def __init__(self, OSM_polygons: str, OSM_features: str, landmarks: str, save_path: bool = False, load_path: bool = False, path_name: str = 'Aarhus_path1.json'):
+    def __init__(self, OSM_polygons: str, OSM_features: str, landmarks: str, save_path: bool = False, load_path: bool = False, path_name: str = 'Aarhus_path1.json', GNSS_frequency: int = 10):
         """
         csv_info takes in csv file for landmarks and csv file for polygons
         """
@@ -24,6 +24,7 @@ class world:
         self.rowPoints, self.rowPoly = self.aarhus.read()
         self.poly_stack = self.aarhus.squeeze_polygons(self.rowPoly, plot=False)
 
+        self.GNSS_frequency = GNSS_frequency
 
         if self.load_path:
             loaded_route = load_from_json('./g2o_generator/robosim/data/robopath/'+self.path_name)
@@ -35,11 +36,6 @@ class world:
             reduced_path = reduce_dimensions(np.array([temp_x1, temp_y1, temp_th1]))
             self.x_odo, self.y_odo, self.th_odo = zip(*reduced_path)
 
-            
-        # Loading landmarks that was saved using GIS data 
-        with open(landmarks, 'r') as f:
-            self.landmarks = np.genfromtxt(f, delimiter=',')
-        
 
     # Draw points using mouse for plt figures
     def get_points(self, event):
@@ -91,27 +87,26 @@ class world:
         self.x_odo_noisy, self.y_odo_noisy, self.th_odo_noisy = odometry_drift_simple(self.x_odo, self.y_odo, self.th_odo)
 
         # Add GNSS points
-        GNSS_points = []
+        self.GNSS_points = []
         for i in range(len(self.x_odo)):
-            if (i % 30 == 0):
+            if (i % self.GNSS_frequency == 0):
                 # print('Adding GPS point {}'.format(i))
                 x_gps, y_gps = add_GNSS_noise(self.x_odo[i], self.y_odo[i], std_gps_x=0.00001, std_gps_y=0.00001)
-                GNSS_points.append([x_gps, y_gps])
-
-
-        # Visualization
+                self.GNSS_points.append([x_gps, y_gps])
+        
         if plot_route:
-            
-            self.aarhus.squeeze_polygons(self.rowPoly, plot=True)
+            self.plot_robot_route(show=True)
 
-            plt.scatter(self.landmarks[:,0], self.landmarks[:,1], label='Landmarks')
+    def plot_robot_route(self, show: bool = 0):
+            
+            self.aarhus.plot_map()
             plt.plot(self.x_odo, self.y_odo, label='Groundtruth')
             plt.plot(self.x_odo_noisy, self.y_odo_noisy, label='Noise route')
-            plt.scatter(np.asarray_chkfinite(GNSS_points)[:,0], np.asarray_chkfinite(GNSS_points)[:,1], marker='x', color='red',
+            plt.scatter(np.asarray_chkfinite(self.GNSS_points)[:,0], np.asarray_chkfinite(self.GNSS_points)[:,1], marker='x', color='red',
                                              label='GPS points')
 
-            plt.xlim([min(self.x_odo), max(self.x_odo)])
-            plt.ylim([min(self.y_odo), max(self.y_odo)])
+            plt.xlim([min(min(self.x_odo), min(self.x_odo_noisy)), max(max(self.x_odo), max(self.x_odo_noisy))])
+            plt.ylim([min(min(self.y_odo), min(self.y_odo_noisy)), max(max(self.y_odo), max(self.y_odo_noisy))])
 
             # For debugging purposes of angle calculations
             if False:
@@ -123,16 +118,18 @@ class world:
                 robot_heading(px, py, pth)
             
             plt.legend(loc="upper left")
-            plt.show()
+
+            if show:
+                plt.show()
 
 
 def main():
 
-    filenamePoints = 'g2o_generator/GIS_Extraction/data/aarhus_features.csv'
-    filenamePoly = 'g2o_generator/GIS_Extraction/data/aarhus_polygons.csv'
-    landmarks_file = 'g2o_generator/GIS_Extraction/landmarks/landmarks_points.csv'
+    filenamePoints = 'g2o_generator/GIS_Extraction/data/aarhus_features_v2.csv'
+    filenamePoly = 'g2o_generator/GIS_Extraction/data/aarhus_polygons_v2.csv'
+    landmarks = './g2o_generator/GIS_Extraction/landmarks/landmarks_w_types.json'
 
-    show = world(filenamePoints, filenamePoly, landmarks_file, save_path=True, load_path=False)
+    show = world(filenamePoints, filenamePoly, landmarks, save_path=False, load_path=True)
     show.make_robot_path()
   
 
