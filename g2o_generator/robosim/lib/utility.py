@@ -1,8 +1,10 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy import interpolate
 from math import atan2, pi, cos, sin, sqrt, ceil
 import json
+import warnings
+
+warnings.filterwarnings("ignore", category=RuntimeWarning) 
 
 def do_rom_splines(route):
     size = len(route)
@@ -20,7 +22,7 @@ def do_rom_splines(route):
     
     return C
 
-def rom_spline(P0: float, P1: float, P2: float, P3: float, t: tuple = (0, 0.33, 0.66, 1), alpha: float = 0.5, N: int = None, d: float = 0.01):
+def rom_spline(P0: float, P1: float, P2: float, P3: float, t: tuple=(0, 0.33, 0.66, 1), alpha: float=0.5, N: int = None, d: float=0.01):
 
     P0, P1, P2, P3 = map(np.array, [P0, P1, P2, P3])
     
@@ -40,7 +42,7 @@ def rom_spline(P0: float, P1: float, P2: float, P3: float, t: tuple = (0, 0.33, 
 
     # t = [(t2 - t1) * n / (N - 1) + t1 for n in range(N)]
     
-    t = np.linspace(t1, t2, N, dtype=np.float128)
+    t = np.linspace(t1, t2, N, dtype=np.float64)
     
     t = t.reshape(len(t), 1)
 
@@ -73,7 +75,7 @@ def calculate_angles(route):
     
     return angles
 
-def calc_bearing(x1,y1,x2,y2):
+def calc_bearing(x1, y1, x2, y2):
 
     angle = atan2((y2 - y1), (x2 - x1))
 
@@ -97,7 +99,7 @@ def rad2deg(theta):
 
     return 180.0 * theta / pi
 
-def robot_heading(x, y, theta, length: float = 0.1, width: float = 0.1):
+def robot_heading(x, y, theta, length: float=0.1, width: float=0.1):
         """
         Method that plots the heading of every pose
         """
@@ -109,7 +111,7 @@ def robot_heading(x, y, theta, length: float = 0.1, width: float = 0.1):
         terminus_y = y + length * np.sin(theta)
         plt.plot([x, terminus_x], [y, terminus_y])
 
-def add_GNSS_noise(x, y, std_gps_x: float = 0.33, std_gps_y: float = 0.1):
+def add_GNSS_noise(x, y, std_gps_x: float=0.33, std_gps_y: float=0.1):
     """Adding noise to GNSS(GPS) points from groundt truht
 
     Args:
@@ -124,7 +126,7 @@ def add_GNSS_noise(x, y, std_gps_x: float = 0.33, std_gps_y: float = 0.1):
     return x_noise, y_noise
 
 # This function is depricated
-def odometry_drift_simple(x, y, th, drift_constant_std: float = 0.33):
+def odometry_drift_simple(x, y, th, drift_constant_std: float=0.33):
     """ 
     Adding a constant to the wheels to simulate drift 
     The drift is computed using a normal gaussian distribution with standard deviation from the constant drift_constant_std
@@ -155,7 +157,7 @@ def odometry_drift_simple(x, y, th, drift_constant_std: float = 0.33):
     return x_noise, y_noise, th_noise
     
 
-def reduce_dimensions(route):
+def reduce_dimensions(route, descriptor: str='half'):
     """ Reducing the size of splined route down to a third of the size
 
     Args:
@@ -165,10 +167,22 @@ def reduce_dimensions(route):
         [np.array]: [reduced robot path np.array([x, y, theta])]
     """    
 
+    reduction = \
+    {
+        'none': 1,
+        'half': 2,
+        'third': 3,
+        'fourth': 4,
+        'fifth': 5,
+        'tenth': 10,
+        'twentieth': 20,
+        'thirtieth': 30
+    }
+
     reduced = []
 
     for i in range(len(route[0,:])):
-        if (i % 5 == 0):
+        if (i % reduction[descriptor] == 0):
             reduced.append(route[:,i])
 
     print('Reduced size of path from {} to {}'.format(len(route[1]), np.shape(reduced)[0]))
@@ -210,13 +224,79 @@ def distance_traveled(x,y):
 
     return distance
 
-def landmark_noise(landmarks, std: float = 0.01):
-    for landmark in landmarks.values():
+def add_landmark_noise(landmarks, std_th: float=1e-7, std_r: float=1e-7):
+    new_landmarks = {}
+    for key, landmark in landmarks.items():
         for pos in landmark:
-            posN = [np.random.normal(0, std), np.random.normal(0, std)]
-            return 
+            
+            e_th = np.random.normal(1, std_th)
+            e_r = np.random.normal(1, std_r)
+            
+            th = atan2(pos[1], pos[0]) * e_th
+            r = sqrt(pos[0]**2 + pos[1]**2) * e_r
+            # print(f"angle: {th} and range: {r}")
 
+            new_landmarks.setdefault(key, [])
+            new_landmarks[key].append(([r*cos(th), r*sin(th)]))
+    
+    return new_landmarks
 
+# Trying to impement Thrun noise model algorithm ://
+def addNoisev2(x,y,th):
+
+    xN = np.zeros(len(x)); yN = np.zeros(len(y)); tN = np.zeros(len(th))
+    xN[0] = x[0]; yN[0] = y[0]; tN[0] = th[0]
+
+    for i in range(1, len(x)):
+        
+        p1 = (x[i-1], y[i-1], th[i-1])
+        p2 = (x[i], y[i], th[i])
+
+        T1_w = vec2trans(p1)
+        T2_w = vec2trans(p2)
+
+        T2_1 = np.linalg.inv(T1_w) @ T2_w
+
+        dx = T2_1[0][2]
+        dy = T2_1[1][2]
+
+        trans = sqrt(dx*dx + dy*dy)
+        rot1 = atan2(T2_w[1][2] - T1_w[1][2], T2_w[0][2] - T1_w[0][2]) - atan2(T1_w[1][2], T1_w[0][2])
+        rot2 = atan2(T2_w[1][2], T2_w[0][2]) - atan2(T1_w[1][2], T1_w[0][2]) - rot1
+
+        a1 = 0.005
+        a2 = 1.0*pi/180.0
+        a3 = 0.005
+        a4 = 0.001
+
+        sd_rot1 = a1*abs(rot1) + a2*trans
+        sd_rot2 = a1*abs(rot2) + a2*trans
+        sd_trans = a3*trans + a4*(abs(rot1)) + abs(rot2)
+
+        t = trans + np.random.normal(0, sd_trans*sd_trans)
+        r1 = rot1 + np.random.normal(0, sd_rot1*sd_rot1)
+        r2 = rot2 + np.random.normal(0, sd_rot2*sd_rot2)
+
+        xT = t*cos(atan2(T1_w[1][2], T1_w[0][2]) + r1)
+        yT = t*sin(atan2(T1_w[1][2], T1_w[0][2]) + r1)
+        tT = atan2(T1_w[1][2], T1_w[0][2]) + r1 + r2
+
+        p3 = (xT, yT, tT)
+        TN = vec2trans(p3)
+
+        p1 = (xN[i-1], yN[i-1], tN[i-1])
+        TNN = vec2trans(p1)
+
+        TNNN = TNN @ TN
+
+        xN[i] = TNNN[0][2]
+        yN[i] = TNNN[1][2]
+        tN[i] = atan2(TNN[1, 0], TNNN[0, 0])
+        
+
+    return xN, yN, tN
+
+    
 def addNoise(x, y, th):
 
     """Takes in odometry values and adding noise in relative pose
@@ -240,6 +320,7 @@ def addNoise(x, y, th):
             T2_1 = np.linalg.inv(T1_w) @ T2_w
         except:
             print(f"{T2_1} is not invertible.")
+            
         del_x = T2_1[0][2]
         del_y = T2_1[1][2]
         del_th = atan2(T2_1[1, 0], T2_1[0, 0])
@@ -289,6 +370,7 @@ def relative_position(x, y, th):
 
     x_relative = []
     y_relative = []
+
     for i in len(x):
 
         x_relative.append(x_start - x[i])

@@ -3,6 +3,9 @@ import os
 import sys
 from matplotlib.colors import ListedColormap
 
+import warnings
+warnings.filterwarnings("ignore")
+
 import matplotlib.pyplot as plt
 import numpy as np
 from numpy.core.function_base import linspace
@@ -28,7 +31,7 @@ class read_csv():
         self.filename_poly = filename_poly
         pass
 
-    def read(self, readPoints: bool = 1, readPoly: bool = 1):
+    def read(self, readPoints: bool=1, readPoly: bool=1):
         self.rowPoints = {}
         self.rowPoly = []
 
@@ -110,13 +113,13 @@ class read_csv():
         else:
             return poly_stack
 
-    def plot_map(self, show: bool = 0, save: bool = 0, filename: str = 'g2o_generator/GIS_Extraction/plots/GIS_map'):
+    def plot_map(self, landmarks_input, show: bool = 0, save: bool = 0, filename: str = 'g2o_generator/GIS_Extraction/plots/GIS_map'):
         
         scalex, scaley = [], []
 
         self.squeeze_polygons(self.rowPoly, plot=True)
 
-        landmarks = self.rowPoints.items()
+        landmarks = landmarks_input.items()
         cmap = ListedColormap(["cyan", "darkblue", "magenta", "springgreen", "orange"])
         ax = plt.gca()
         colors = cmap(np.linspace(0, 1, len(landmarks)))
@@ -152,8 +155,8 @@ def main():
     filenamePoints = 'g2o_generator/GIS_Extraction/data/aarhus_features_v2.csv'
     filenamePoly = 'g2o_generator/GIS_Extraction/data/aarhus_polygons_v2.csv'
     aarhus = read_csv(filenamePoints, filenamePoly)
-    _, _ = aarhus.read()
-    aarhus.plot_map(save=0, show=False)
+    landmarks, _ = aarhus.read()
+    aarhus.plot_map(landmarks, save=0, show=False)
 
 
 if __name__ == "__main__":

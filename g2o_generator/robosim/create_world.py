@@ -11,7 +11,8 @@ from lib.utility import *
 
 
 class world:
-    def __init__(self, OSM_polygons: str, OSM_features: str, landmarks: str, save_path: bool = False, load_path: bool = False, path_name: str = 'Aarhus_path1.json', GNSS_frequency: int = 10):
+    def __init__(self, OSM_polygons: str, OSM_features: str, landmarks: str, save_path: bool = False,
+                 load_path: bool = False, path_name: str = 'Aarhus_path1.json', GNSS_frequency: int = 10):
         """
         csv_info takes in csv file for landmarks and csv file for polygons
         """
@@ -23,6 +24,7 @@ class world:
         self.aarhus = GIS.read_csv(OSM_polygons, OSM_features)
         self.rowPoints, self.rowPoly = self.aarhus.read()
         self.poly_stack = self.aarhus.squeeze_polygons(self.rowPoly, plot=False)
+        self.landmarks = load_from_json(landmarks)
 
         self.GNSS_frequency = GNSS_frequency
 
@@ -31,9 +33,9 @@ class world:
             temp_x = np.asfarray(loaded_route[0]); temp_y = np.asfarray(loaded_route[1]); temp_th = np.asfarray(loaded_route[2])
             self.loaded_route = [[pose_x, pose_y, pose_th] for pose_x, pose_y, pose_th in zip(temp_x, temp_y, temp_th)]
 
-            full_route = do_rom_splines(np.asfarray(self.loaded_route, dtype=np.float128))
+            full_route = do_rom_splines(np.asfarray(self.loaded_route, dtype=np.float64))
             temp_x1, temp_y1, temp_th1 = zip(*full_route)
-            reduced_path = reduce_dimensions(np.array([temp_x1, temp_y1, temp_th1]))
+            reduced_path = reduce_dimensions(np.array([temp_x1, temp_y1, temp_th1]), 'fifth')
             self.x_odo, self.y_odo, self.th_odo = zip(*reduced_path)
 
 
@@ -55,7 +57,7 @@ class world:
         if self.save_path:
             
             self.route = []
-            fig = plt.figure(1)
+            fig = plt.figure()
 
             for id, _ in enumerate(self.poly_stack):
                 ax = fig.add_subplot()
@@ -64,7 +66,7 @@ class world:
                 ax.plot()
 
             fig.canvas.mpl_connect('button_press_event', self.get_points)
-            plt.show(1)
+            plt.show()
 
             # calculating angles between all points and concatenating
             angles = calculate_angles(self.route)
@@ -74,8 +76,8 @@ class world:
             # Smoothening of route using splines
             full_route = do_rom_splines(poses)
             self.x_odo, self.y_odo, self.th_odo = zip(*full_route)
-            reduced_path = reduce_dimensions(np.array([self.x_odo, self.y_odo, self.th_odo]))
-            self.x_odo, self.y_odo, self.th_odo = zip(*reduced_path)
+            #reduced_path = reduce_dimensions(np.array([self.x_odo, self.y_odo, self.th_odo]), 'fifth')
+            #self.x_odo, self.y_odo, self.th_odo = zip(*reduced_path)
 
             # Saving the reduced route to json file 
             poses_x, poses_y, poses_th = zip(*poses)
@@ -84,43 +86,43 @@ class world:
             save_to_json(json_path1,'./g2o_generator/robosim/data/robopath/'+self.path_name)
     
         # Odometry drift
-        self.x_odo_noisy, self.y_odo_noisy, self.th_odo_noisy = odometry_drift_simple(self.x_odo, self.y_odo, self.th_odo)
+        #self.x_odo_noisy, self.y_odo_noisy, self.th_odo_noisy = odometry_drift_simple(self.x_odo, self.y_odo, self.th_odo)
 
         # Add GNSS points
-        self.GNSS_points = []
-        for i in range(len(self.x_odo)):
-            if (i % self.GNSS_frequency == 0):
-                # print('Adding GPS point {}'.format(i))
-                x_gps, y_gps = add_GNSS_noise(self.x_odo[i], self.y_odo[i], std_gps_x=0.00001, std_gps_y=0.00001)
-                self.GNSS_points.append([x_gps, y_gps])
+        # self.GNSS_points = []
+        # for i in range(len(self.x_odo)):
+        #     if (i % self.GNSS_frequency == 0):
+        #         # print('Adding GPS point {}'.format(i))
+        #         x_gps, y_gps = add_GNSS_noise(self.x_odo[i], self.y_odo[i], std_gps_x=0.00001, std_gps_y=0.00001)
+        #         self.GNSS_points.append([x_gps, y_gps])
         
-        if plot_route:
-            self.plot_robot_route(show=True)
+        # if plot_route:
+        #     self.plot_robot_route(show=True)
 
-    def plot_robot_route(self, show: bool = 0):
+    #def plot_robot_route(self, show: bool=0):
             
-            self.aarhus.plot_map()
-            plt.plot(self.x_odo, self.y_odo, label='Groundtruth')
-            plt.plot(self.x_odo_noisy, self.y_odo_noisy, label='Noise route')
-            plt.scatter(np.asarray_chkfinite(self.GNSS_points)[:,0], np.asarray_chkfinite(self.GNSS_points)[:,1], marker='x', color='red',
-                                             label='GPS points')
+            #self.aarhus.plot_map(self.landmarks)
+            #plt.plot(self.x_odo, self.y_odo, label='Groundtruth')
+            #plt.plot(self.x_odo_noisy, self.y_odo_noisy, label='Noise route')
+            #plt.scatter(np.asarray_chkfinite(self.GNSS_points)[:,0], np.asarray_chkfinite(self.GNSS_points)[:,1], marker='x', color='red',
+                                    #         label='GPS points')
 
-            plt.xlim([min(min(self.x_odo), min(self.x_odo_noisy)), max(max(self.x_odo), max(self.x_odo_noisy))])
-            plt.ylim([min(min(self.y_odo), min(self.y_odo_noisy)), max(max(self.y_odo), max(self.y_odo_noisy))])
+            #plt.xlim([min(min(self.x_odo), min(self.x_odo_noisy)), max(max(self.x_odo), max(self.x_odo_noisy))])
+            #plt.ylim([min(min(self.y_odo), min(self.y_odo_noisy)), max(max(self.y_odo), max(self.y_odo_noisy))])
 
             # For debugging purposes of angle calculations
-            if False:
-                px, py, pth = zip(*self.loaded_route)
-                px = np.asarray_chkfinite(px)
-                py = np.asarray_chkfinite(py)
-                pth = np.asarray_chkfinite(pth)
+            #if False:
+                #px, py, pth = zip(*self.loaded_route)
+                #px = np.asarray_chkfinite(px)
+                #py = np.asarray_chkfinite(py)
+               # pth = np.asarray_chkfinite(pth)
                 
-                robot_heading(px, py, pth)
+              #  robot_heading(px, py, pth)
             
-            plt.legend(loc="upper left")
+           # plt.legend(loc="upper left")
 
-            if show:
-                plt.show()
+            #if show:
+             #   plt.show()
 
 
 def main():
