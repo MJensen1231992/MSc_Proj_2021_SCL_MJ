@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from numpy.core.function_base import linspace
 import shapely.geometry as sg
+import shapely.ops as so
 import utm
 from descartes import PolygonPatch
 from utm.conversion import from_latlon
@@ -29,6 +30,7 @@ class read_csv():
     def __init__(self, filename_points: str, filename_poly: str):
         self.filename_points = filename_points
         self.filename_poly = filename_poly
+        self.scalex, self.scaley = [], []
         pass
 
     def read(self, readPoints: bool=1, readPoly: bool=1):
@@ -81,7 +83,7 @@ class read_csv():
                         ###
                 
                 self.rowPoly = np.array(self.rowPoly, dtype=object)
-
+                
         return self.rowPoints, self.rowPoly
 
         
@@ -89,33 +91,44 @@ class read_csv():
         
         poly_stack = []
         poly_area = []
+        x_casc, y_casc = [], []
 
         for poly in polygon:
 
             y = poly[0::2]; x = poly[1::2]
             x, y, _, _ = from_latlon(np.array(x), np.array(y))
+            for x_val, y_val in zip(x, y):
+                self.scalex.append(x_val), self.scaley.append(y_val)
             points = np.stack((x,y), axis=-1)
             self.polygon_final = sg.Polygon(np.squeeze(points))
 
             # Debug
             area = self.polygon_final.area
-            
+
             poly_area.append(area)
             if area < 100000:
                 poly_stack.append(self.polygon_final)
+        
+        cascade = so.cascaded_union(poly_stack)
+        
+        # coordslist = [poly.exterior.coords for poly in list(cascade.geoms)]
+        
+        # for coord in coordslist:
+        #     temp_coord = coord[0]
+        #     xc, yc = temp_coord
+        #     x_casc.append(xc), y_casc.append(yc)
 
-        # print('min area of poly: {}, max area: {}, \nmean area: {}'.format(min(poly_area),max(poly_area), np.mean(poly_area)))
         if plot:
-            fig = plt.figure()
-            for poly in poly_stack:
-                ax = fig.add_subplot()
-                ax.add_patch(PolygonPatch(poly.buffer(0)))
+            _, axs = plt.subplots()
+            axs.set_aspect('equal', 'datalim')
+
+            for geom in cascade.geoms:
+                x_casc, y_casc = geom.exterior.xy
+                axs.fill(x_casc, y_casc, alpha=0.5, fc='b', ec='none')
         else:
             return poly_stack
 
     def plot_map(self, landmarks_input, show: bool = 0, save: bool = 0, filename: str = 'g2o_generator/GIS_Extraction/plots/GIS_map'):
-        
-        scalex, scaley = [], []
 
         self.squeeze_polygons(self.rowPoly, plot=True)
 
@@ -128,12 +141,12 @@ class read_csv():
             fx, fy = [], []
             for pos in landmark:
                 x, y = pos
-                scalex.append(x), scaley.append(y)
+                self.scalex.append(x), self.scaley.append(y)
                 fx.append(x), fy.append(y)
             ax.scatter(fx, fy, zorder=2, s=10, color=colors[idx], label=key)
-
-        # plt.xlim(min(scalex), max(scalex))
-        # plt.ylim(min(scaley), max(scaley))
+        
+        # plt.xlim(min(self.scalex), max(self.scalex))
+        # plt.ylim(min(self.scaley), max(self.scaley))
         plt.legend()
 
         if save:
@@ -156,7 +169,7 @@ def main():
     filenamePoly = 'g2o_generator/GIS_Extraction/data/aarhus_polygons_v2.csv'
     aarhus = read_csv(filenamePoints, filenamePoly)
     landmarks, _ = aarhus.read()
-    aarhus.plot_map(landmarks, save=0, show=False)
+    aarhus.plot_map(landmarks, save=0, show=True)
 
 
 if __name__ == "__main__":

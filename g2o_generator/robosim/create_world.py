@@ -33,9 +33,8 @@ class world:
             temp_x = np.asfarray(loaded_route[0]); temp_y = np.asfarray(loaded_route[1]); temp_th = np.asfarray(loaded_route[2])
             self.loaded_route = [[pose_x, pose_y, pose_th] for pose_x, pose_y, pose_th in zip(temp_x, temp_y, temp_th)]
 
-            full_route = do_rom_splines(np.asfarray(self.loaded_route, dtype=np.float64))
-            temp_x1, temp_y1, temp_th1 = zip(*full_route)
-            reduced_path = reduce_dimensions(np.array([temp_x1, temp_y1, temp_th1]), 'fifth')
+            temp_x1, temp_y1, temp_th1 = zip(*self.loaded_route)
+            reduced_path = reduce_dimensions(np.array([temp_x1, temp_y1, temp_th1]), 'half')
             self.x_odo, self.y_odo, self.th_odo = zip(*reduced_path)
 
 
@@ -68,77 +67,23 @@ class world:
             fig.canvas.mpl_connect('button_press_event', self.get_points)
             plt.show()
 
-            # calculating angles between all points and concatenating
-            # angles = calculate_angles(self.route)
-            # print("ANGLES")
-            # print(angles)
-            # poses = [[pose[0], pose[1], theta] for pose, theta in zip(self.route, angles)]
-            # poses = [poses[0]] + poses
-            
-
-            # x, y, th = zip(*np.asarray_chkfinite(poses[1:-1], dtype=np.float64)) ## 
 
             # Smoothening of route using splines
-
             full_route = do_rom_splines(self.route)
             full_route = [[pose[0], pose[1]] for pose in full_route]
 
+            # Atan2 to calculate angles between all poses
             angles = calculate_angles(full_route)
 
             full_route_poses = [[pose[0], pose[1], theta] for pose, theta in zip(full_route, angles)]
             x_odo, y_odo, th_odo = zip(*full_route_poses)
 
 
-            # plt.plot(x_odo, y_odo)
-            # robot_heading(x_odo,y_odo,th_odo, color="blue")
-
-            #reduced_path = reduce_dimensions(np.array([self.x_odo, self.y_odo, self.th_odo]), 'fifth')
-            #self.x_odo, self.y_odo, self.th_odo = zip(*reduced_path)
-
             # Saving the reduced route to json file 
-            
             json_path = np.array([x_odo, y_odo, th_odo])
             json_path1 = json_path.tolist()
             save_to_json(json_path1,'./g2o_generator/robosim/data/robopath/'+self.path_name)
     
-        # Odometry drift
-        #self.x_odo_noisy, self.y_odo_noisy, self.th_odo_noisy = odometry_drift_simple(self.x_odo, self.y_odo, self.th_odo)
-
-        # Add GNSS points
-        # self.GNSS_points = []
-        # for i in range(len(self.x_odo)):
-        #     if (i % self.GNSS_frequency == 0):
-        #         # print('Adding GPS point {}'.format(i))
-        #         x_gps, y_gps = add_GNSS_noise(self.x_odo[i], self.y_odo[i], std_gps_x=0.00001, std_gps_y=0.00001)
-        #         self.GNSS_points.append([x_gps, y_gps])
-        
-        # if plot_route:
-        #     self.plot_robot_route(show=True)
-
-    #def plot_robot_route(self, show: bool=0):
-            
-            #self.aarhus.plot_map(self.landmarks)
-            #plt.plot(self.x_odo, self.y_odo, label='Groundtruth')
-            #plt.plot(self.x_odo_noisy, self.y_odo_noisy, label='Noise route')
-            #plt.scatter(np.asarray_chkfinite(self.GNSS_points)[:,0], np.asarray_chkfinite(self.GNSS_points)[:,1], marker='x', color='red',
-                                    #         label='GPS points')
-
-            #plt.xlim([min(min(self.x_odo), min(self.x_odo_noisy)), max(max(self.x_odo), max(self.x_odo_noisy))])
-            #plt.ylim([min(min(self.y_odo), min(self.y_odo_noisy)), max(max(self.y_odo), max(self.y_odo_noisy))])
-
-            # For debugging purposes of angle calculations
-            #if False:
-                #px, py, pth = zip(*self.loaded_route)
-                #px = np.asarray_chkfinite(px)
-                #py = np.asarray_chkfinite(py)
-               # pth = np.asarray_chkfinite(pth)
-                
-              #  robot_heading(px, py, pth)
-            
-           # plt.legend(loc="upper left")
-
-            #if show:
-             #   plt.show()
 
 
 def main():
