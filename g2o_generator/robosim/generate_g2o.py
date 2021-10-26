@@ -19,14 +19,19 @@ class g2o:
         self.pose_pose, self.pose_landmark = [], []
         self.lm_lc_range = lm_lc_range
         self.odo_lc_range = odo_lc_range
+        self.lm_lut = {}
+        self.landmark_arrow = []
+
+        self.lm_thresh = 3 
+        self.lm_lc_prob = 0.93
 
         # Loading and extracting save odometry route
         odometry = load_from_json(odometry_file)
         temp_x = np.asfarray(odometry[0]); temp_y = np.asfarray(odometry[1]); temp_th = np.asfarray(odometry[2])
         loaded_route = [[pose_x, pose_y, pose_th] for pose_x, pose_y, pose_th in zip(temp_x, temp_y, temp_th)]
 
-        full_route = do_rom_splines(np.asfarray(loaded_route))
-        temp_x1, temp_y1, temp_th1 = zip(*full_route)
+        # full_route = do_rom_splines(np.asfarray(loaded_route))
+        temp_x1, temp_y1, temp_th1 = zip(*loaded_route)
         reduced_path = reduce_dimensions(np.array([temp_x1, temp_y1, temp_th1]), 'half')
 
         # Adding noise to odo route
@@ -44,17 +49,28 @@ class g2o:
         self.landmarks = add_landmark_noise(loaded_landmarks)
 
     
-    def generate_g2o(self, plot: bool=True, plot_constraints: bool=True):
+    def generate_g2o(self, plot: bool=False, plot_constraints: bool=False, plot_robot_heading: bool=False):
 
         # Write g2o file
         g2oW = self.writeOdometry(self.xN, self.yN, self.thN, self.landmarks)
-        self.do_loop_closure(self.x, self.y, self.th, self.xN, self.yN, self.thN, self.landmarks, g2oW)
-
+        self.do_loop_closure(self.x, self.y, self.th, self.xN, self.yN, self.thN, g2oW)
+        
+        print("RMSE: {:.2f} \t|\t MAE: {:.2f}".format(RMSE(np.array([self.xN, self.yN]), np.array([self.x, self.y])), \
+                                               MAE(np.array([self.xN, self.yN]), np.array([self.x, self.y]))))
+      
+        # lm_x, lm_y, lm_th = zip(*self.landmark_arrow)
+        
         if plot:
             # Plotting:
             self.aarhus.plot_map(self.landmarks)
             if plot_constraints:
                 self.plot_constraints()
+
+            if plot_robot_heading:
+                # pass
+                robot_heading(self.x, self.y, self.th, color="blue", length=1)
+                robot_heading(self.xN, self.yN, self.thN, color="red", length=1)
+                # robot_heading(lm_x, lm_y, lm_th, color="green", length=0.5)
 
             plt.plot(self.x, self.y, label='Groundtruth')
             plt.plot(self.xN, self.yN, label='Noise route')
@@ -63,20 +79,21 @@ class g2o:
             # plt.scatter(self.x[50], self.y[50], color='red')
             # circle1 = plt.Circle((self.x[50], self.y[50]), 10, fill=False, label='Loop closure range', color='red')
             # plt.gca().add_patch(circle1)
-            # plt.legend(loc='upper right')
+            plt.legend(loc='upper right')
             plt.ylabel("UTM32 Y")
             plt.xlabel("UTM32 X")
             plt.show()
 
     def writeOdometry(self, x, y, theta, landmarks):
         g2oW = open('g2o_generator/robosim/data/g2o/noise.g2o', 'w')
-
         points =  [[x, y] for x, y in zip(self.x, self.y)]
         self.n_landmarks = 0
-        ds = [0, 0]
-        # ds = [self.x[0],self.y[0]]
+
+        xscale = self.x[0]
+        yscale = self.y[0]
+
         # If a landmark has been seen before, no not append. Also saving landmarks in a look up table
-        lm_hist = []; self.lm_lut = {}
+        lm_hist = []
         for pose_id in range(len(self.x)-1):
             for key, landmark in landmarks.items():
                 for pos in landmark:
@@ -85,13 +102,14 @@ class g2o:
                         if pos in lm_hist:
                             continue
                         else:
-                            l = '{} {} {} {}'.format("VERTEX_XY", self.n_landmarks, pos[0]-ds[0], pos[1]-ds[1])
+
+                            l = '{} {} {} {}'.format("VERTEX_XY", self.n_landmarks, pos[0]-xscale, pos[1]-yscale)
                             g2oW.write(l)
                             g2oW.write("\n")
-
                             self.n_landmarks += 1
                             lm_hist.append(pos)
                             self.lm_lut[self.n_landmarks, key] = pos
+
 
         # Odometry id and pose
         for idx, (x_odo, y_odo, th_odo) in enumerate(zip(x, y, theta)):
@@ -99,7 +117,7 @@ class g2o:
                 print('VERTEX odometry data is not in correct format')
                 return
             else:
-                l = '{} {} {} {} {}'.format("VERTEX_SE2", idx+self.n_landmarks, x_odo-ds[0], y_odo-ds[1], th_odo)
+                l = '{} {} {} {} {}'.format("VERTEX_SE2", idx+self.n_landmarks, x_odo-xscale, y_odo-yscale, th_odo)
                 g2oW.write(l)
                 g2oW.write("\n")
         
@@ -115,8 +133,6 @@ class g2o:
             del_x = str(T2_1[0][2])
             del_y = str(T2_1[1][2])
             del_th = str(atan2(T2_1[1, 0], T2_1[0, 0]))
-
-            # self.pose_pose.append([p1[0:2], p2[0:2]])
 
             l = '{} {} {} {} {} {} {}'.format("EDGE_SE2", str((i - 1) + self.n_landmarks), str(i + self.n_landmarks), 
                                               del_x, del_y, del_th, H)
@@ -134,7 +150,7 @@ class g2o:
             g2oWG.write(l)
             g2oWG.write("\n")
 
-    def do_loop_closure(self, x, y, th, xN, yN, thN, landmarks, g2oW):       
+    def do_loop_closure(self, x, y, th, xN, yN, thN, g2oW):       
        
         # Ground truth points; Noisy points
         points =  [[x, y, th] for x, y, th in zip(x, y, th)]
@@ -165,7 +181,8 @@ class g2o:
             # Odometry constraints
             for j in range(len(x)):
                 if  j < pose_id and abs(pose_id - j) > 8:
-
+                    
+                    # Checking for loop closure range pose-pose
                     d_odo = np.linalg.norm(np.array(points[pose_id][0:2], dtype=np.float64) - np.array(points[j][0:2], dtype=np.float64))
                     if np.greater(self.odo_lc_range, d_odo):
 
@@ -192,26 +209,27 @@ class g2o:
                     # Checking for loop closure range
                     d_landmark = np.linalg.norm(np.array(points[pose_id][0:2], dtype=np.float64) - np.array(pos, dtype=np.float64))
                     
-                    # Chance that a landmark detection fail (7% for targets min 7m away)
-                    lm_thresh = 3 
-                    lm_lc_prob = 0.93
+                    # Chance that a landmark detection fail (7% for targets min 7m away (if landmark range is set to 10 m))
                     range_diff = abs(self.lm_lc_range - d_landmark)
                     
-                    if range_diff <= lm_thresh:
-                        lm_lc = random.random() < lm_lc_prob
+                    if range_diff <= self.lm_thresh:
+                        lm_lc = random.random() < self.lm_lc_prob
                     else:
                         lm_lc = True
 
+                    # Checking distance criteria, pose-landmarks
                     if np.greater(self.lm_lc_range, d_landmark) and lm_lc:
                         
                         n_lc_lm += 1
-                        edge_lc_lm = (pose_id+1, lm_id)
+                        edge_lc_lm = (pose_id+1, lm_id-1)
                         
                         # Saving pose_landmark for visualization
                         self.pose_landmark.append([pointsN[pose_id][0:2], pos])
                         
                         # Bearing to landmark
                         bearing = calc_bearing(x[pose_id], y[pose_id], pos[0], pos[1])
+                        self.landmark_arrow.append([points[pose_id][0], points[pose_id][1], bearing])
+
                         lc_constraint_lm = self.generate_lc_constraint(np.array([[x[pose_id]], [y[pose_id]], [th[pose_id]]]),
                                                                        np.array([[pos[0]], [pos[1]], [bearing]]))
  
@@ -238,7 +256,12 @@ class g2o:
         delta_x = x2[0:2,0] - x1[0:2,0]
         R = np.transpose(np.matrix([[cos(x1[2]), -sin(x1[2])], [sin(x1[2]), cos(x1[2])]]))
         delta_x_l = R @ delta_x
-        d_theta = min_theta(x2[2] - x1[2])
+
+        d_theta = x2[2] - x1[2]
+        if (d_theta > pi):
+            d_theta -= 2 * pi
+        elif (d_theta <= -pi):
+            d_theta += 2 * pi
 
         return np.array([[delta_x_l[0,0]], [delta_x_l[0,1]], [d_theta[0]]])
 
@@ -316,9 +339,9 @@ if __name__ == '__main__':
     filenamePoly = 'g2o_generator/GIS_Extraction/data/aarhus_polygons_v2.csv'
     filelandmarks = 'g2o_generator/GIS_Extraction/landmarks/landmarks_w_types.json'
     odometry_file = './g2o_generator/robosim/data/robopath/Aarhus_path1.json'
-    genG2O = g2o(odometry_file, filenamePoints, filenamePoly, filelandmarks, 15, 1)
+    genG2O = g2o(odometry_file, filenamePoints, filenamePoly, filelandmarks, 10, 1)
     # genG2O.ground_truth()
-    genG2O.generate_g2o(plot=True, plot_constraints=True)
+    genG2O.generate_g2o(plot=True, plot_constraints=False, plot_robot_heading=True)
 
 
     

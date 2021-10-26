@@ -69,19 +69,35 @@ class world:
             plt.show()
 
             # calculating angles between all points and concatenating
-            angles = calculate_angles(self.route)
-            poses = [[pose[0], pose[1], theta] for pose, theta in zip(self.route, angles)]
-            poses = [poses[0]] + poses + [poses[-1]]
+            # angles = calculate_angles(self.route)
+            # print("ANGLES")
+            # print(angles)
+            # poses = [[pose[0], pose[1], theta] for pose, theta in zip(self.route, angles)]
+            # poses = [poses[0]] + poses
+            
+
+            # x, y, th = zip(*np.asarray_chkfinite(poses[1:-1], dtype=np.float64)) ## 
 
             # Smoothening of route using splines
-            full_route = do_rom_splines(poses)
-            self.x_odo, self.y_odo, self.th_odo = zip(*full_route)
+
+            full_route = do_rom_splines(self.route)
+            full_route = [[pose[0], pose[1]] for pose in full_route]
+
+            angles = calculate_angles(full_route)
+
+            full_route_poses = [[pose[0], pose[1], theta] for pose, theta in zip(full_route, angles)]
+            x_odo, y_odo, th_odo = zip(*full_route_poses)
+
+
+            # plt.plot(x_odo, y_odo)
+            # robot_heading(x_odo,y_odo,th_odo, color="blue")
+
             #reduced_path = reduce_dimensions(np.array([self.x_odo, self.y_odo, self.th_odo]), 'fifth')
             #self.x_odo, self.y_odo, self.th_odo = zip(*reduced_path)
 
             # Saving the reduced route to json file 
-            poses_x, poses_y, poses_th = zip(*poses)
-            json_path = np.array([poses_x, poses_y, poses_th])
+            
+            json_path = np.array([x_odo, y_odo, th_odo])
             json_path1 = json_path.tolist()
             save_to_json(json_path1,'./g2o_generator/robosim/data/robopath/'+self.path_name)
     

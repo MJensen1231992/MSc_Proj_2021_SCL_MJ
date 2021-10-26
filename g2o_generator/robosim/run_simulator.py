@@ -16,7 +16,7 @@ filenamePoly = 'g2o_generator/GIS_Extraction/data/aarhus_polygons_v2.csv'
 landmarksFile = './g2o_generator/GIS_Extraction/landmarks/landmarks_w_types.json'
 
 # Variables
-LM_RANGE = 15
+LM_RANGE = 10
 ODO_RANGE = 1
 
 # Using imported data
@@ -31,7 +31,7 @@ odometry_file = './g2o_generator/robosim/data/robopath/Aarhus_path1.json'
 
 # Generating g2o file
 genG2O = gg.g2o(odometry_file, filenamePoints, filenamePoly, landmarksFile, LM_RANGE, ODO_RANGE)
-genG2O.generate_g2o(plot=True, plot_constraints=False)
+genG2O.generate_g2o(plot=True, plot_constraints=False, plot_robot_heading=True)
 
 
 

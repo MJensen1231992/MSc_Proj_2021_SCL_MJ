@@ -7,6 +7,7 @@ import warnings
 warnings.filterwarnings("ignore", category=RuntimeWarning) 
 
 def do_rom_splines(route):
+
     size = len(route)
     C = []
 
@@ -39,8 +40,6 @@ def rom_spline(P0: float, P1: float, P2: float, P3: float, t: tuple=(0, 0.33, 0.
     t1 = traj(P0, P1, t0, alpha)
     t2 = traj(P1, P2, t1, alpha)
     t3 = traj(P2, P3, t2, alpha)
-
-    # t = [(t2 - t1) * n / (N - 1) + t1 for n in range(N)]
     
     t = np.linspace(t1, t2, N, dtype=np.float64)
     
@@ -50,45 +49,43 @@ def rom_spline(P0: float, P1: float, P2: float, P3: float, t: tuple=(0, 0.33, 0.
     A2 = (t2 - t)/(t2 - t1)*P1 + (t - t1)/(t2 - t1)*P2
     A3 = (t3 - t)/(t3 - t2)*P2 + (t - t2)/(t3 - t2)*P3 
 
-    B1 = A1*(t2 - t)/(t2 - t0) + A2*(t - t0)/(t2 - t0)
-    B2 = A2*(t3 - t)/(t3 - t1) + A3*(t - t1)/(t3 - t1) 
+    B1 = (t2 - t)/(t2 - t0)*A1 + (t - t0)/(t2 - t0)*A2
+    B2 = (t3 - t)/(t3 - t1)*A2 + (t - t1)/(t3 - t1)*A3
             
-    pt = B1*(t2 - t)/(t2 - t1) + B2*(t - t1)/(t2 - t1)
+    pt = (t2 - t)/(t2 - t1)*B1 + (t - t1)/(t2 - t1)*B2
         
     return pt
 
 def traj(Pi, Pj, t, alpha):
 
-    xi, yi, thi = Pi
-    xj, yj, thj = Pj
+    xi, yi = Pi[0:2]
+    xj, yj = Pj[0:2]
 
-    return ( ( sqrt((xj-xi)**2 + (yj-yi)**2 + (thj-thi)**2 )**0.5 ))**alpha + t
+    return sqrt(((xj - xi)**2 + (yj - yi)**2))**alpha + t
 
 
 def calculate_angles(route):
+
     # Calculating angle between two points
     angles = [atan2((y2 - y1), (x2 - x1)) for (x1, y1), (x2, y2) in zip(route[:-1], route[1:])]
-
-    # Iterating over all angles and normalizing angles to [-pi, pi]
-    for i in range(len(angles) - 1):
-        angles[i] = min_theta(angles[i])
     
     return angles
 
 def calc_bearing(x1, y1, x2, y2):
 
     angle = atan2((y2 - y1), (x2 - x1))
+    
+    return angle
 
-    return min_theta(angle)
+def min_theta(theta_i, theta_j):
 
-def min_theta(theta):
     # Setting minimum angular difference 
-    if (theta > pi):
-        theta -= 2 * pi
-    elif (theta <= -pi): 
-        theta += 2 * pi
+    if (theta_j - theta_i) > pi:
+        theta_j -= 2 * pi
+    elif (theta_j - theta_i) <= pi:
+        theta_j += 2 * pi
 
-    return theta
+    return theta_j
 
 
 def deg2grad(theta):
@@ -99,17 +96,15 @@ def rad2deg(theta):
 
     return 180.0 * theta / pi
 
-def robot_heading(x, y, theta, length: float=0.1, width: float=0.1):
+def robot_heading(x, y, theta, color: str, length: float=1):
         """
         Method that plots the heading of every pose
         """
-        x = x[1:-1]
-        y = y[1:-1]
-        theta = theta[1:-1]
 
-        terminus_x = x + length * np.cos(theta)
-        terminus_y = y + length * np.sin(theta)
-        plt.plot([x, terminus_x], [y, terminus_y])
+        dx = np.cos(theta)
+        dy = np.sin(theta)
+
+        plt.quiver(x, y, dx, dy, color=color, angles='xy', scale_units='xy', scale=length)
 
 def add_GNSS_noise(x, y, std_gps_x: float=0.33, std_gps_y: float=0.1):
     """Adding noise to GNSS(GPS) points from groundt truht
@@ -329,9 +324,9 @@ def addNoise(x, y, th):
         if(i<5):
             xNoise = 0; yNoise = 0; thNoise = 0
         else:
-            xNoise = np.random.normal(0, 0.033); 
+            xNoise = np.random.normal(0, 0.01); 
             yNoise = np.random.normal(0, 0.01); 
-            thNoise = np.random.normal(0, 0.01)
+            thNoise = np.random.normal(0, 0.002)
 
         del_xN = del_x + xNoise; del_yN = del_y + yNoise; del_thetaN = del_th + thNoise
 
@@ -381,3 +376,8 @@ def relative_position(x, y, th):
 
     return x_relative, y_relative
 
+def RMSE(predicted, actual):
+    return np.square(np.subtract(actual,predicted)).mean() 
+
+def MAE(predicted, actual):
+    return abs(np.subtract(actual, predicted)).mean()
