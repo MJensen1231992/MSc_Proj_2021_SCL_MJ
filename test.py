@@ -1,11 +1,21 @@
 import numpy as np
+import matplotlib.pyplot as plt
+from math import atan2, pi
+import random
 
-x = np.ones((10,3))
-print(np.shape(x))
-reduced = []
-for i in range(len(x[:,0])):
-    if (i % 1.5 == 1):
-            reduced.append(x[i,:])
+def min_theta(theta_i, theta_j):
+    
+    # Setting minimum angular difference 
+    diff = theta_j - theta_i
 
-print(np.shape(x))
-print(np.shape(reduced))
+    if diff > pi:
+        diff -= 2 * pi
+    elif diff <= -pi:
+        diff += 2 * pi
+    else:
+        return theta_j
+    
+    return diff
+
+
+print(min_theta(1,3))
