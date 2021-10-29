@@ -1,10 +1,12 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from math import atan2, pi, cos, sin, sqrt, ceil
-import json
+import random
 import warnings
 
 warnings.filterwarnings("ignore", category=RuntimeWarning) 
+
+from lib.helpers import *
 
 def do_rom_splines(route):
 
@@ -64,93 +66,15 @@ def traj(Pi, Pj, t, alpha):
     return sqrt(((xj - xi)**2 + (yj - yi)**2))**alpha + t
 
 
-def calculate_angles(route):
-
-    # Calculating angle between two points
-    angles = [atan2((y2 - y1), (x2 - x1)) for (x1, y1), (x2, y2) in zip(route[:-1], route[1:])]
-    
-    return angles
-
-def calc_bearing(x1, y1, x2, y2):
-
-    angle = atan2((y2 - y1), (x2 - x1))
-    
-    return angle
-
-def min_theta(theta_i, theta_j):
-
-    # Setting minimum angular difference 
-    if (theta_j - theta_i) > pi:
-        theta_j -= 2 * pi
-    elif (theta_j - theta_i) <= pi:
-        theta_j += 2 * pi
-
-    return theta_j
-
-
-def deg2grad(theta):
-    
-    return pi*theta / 180.0
-
-def rad2deg(theta):
-
-    return 180.0 * theta / pi
-
 def robot_heading(x, y, theta, color: str, length: float=1):
         """
         Method that plots the heading of every pose
         """
-
         dx = np.cos(theta)
         dy = np.sin(theta)
 
         plt.quiver(x, y, dx, dy, color=color, angles='xy', scale_units='xy', scale=length)
 
-def add_GNSS_noise(x, y, std_gps_x: float=0.33, std_gps_y: float=0.1):
-    """Adding noise to GNSS(GPS) points from groundt truht
-
-    Args:
-        x ([np.array 1xN]): [x displacement]
-        y ([np.array 1xN]): [y displacement]
-        std_gps (float, optional): [standard deviation for GPS points]. Defaults to 0.01.
-    """    
-    noise_x_dir = np.random.normal(0, std_gps_x)
-    noise_y_dir = np.random.normal(0, std_gps_y)
-    x_noise = x + noise_x_dir
-    y_noise = y + noise_y_dir
-    return x_noise, y_noise
-
-# This function is depricated
-def odometry_drift_simple(x, y, th, drift_constant_std: float=0.33):
-    """ 
-    Adding a constant to the wheels to simulate drift 
-    The drift is computed using a normal gaussian distribution with standard deviation from the constant drift_constant_std
-
-    return:
-        The fully drifted route 
-    """
-
-    x, y, th = convert_to_np_array(x, y, th)
-
-    x_noise = []
-    y_noise = []
-    th_noise = []
-
-    noise = 0
-    for i in range(len(x)):
-
-        x_new = x[i] + noise
-        y_new = y[i] + noise*0.1
-        th_new = th[i] + noise*0.2
-
-        x_noise.append(x_new)
-        y_noise.append(y_new)
-        th_noise.append(th_new)
-
-        noise += np.random.normal(0.33, drift_constant_std)
-
-    return x_noise, y_noise, th_noise
-    
 
 def reduce_dimensions(route, descriptor: str='half'):
     """ Reducing the size of splined route down to a third of the size
@@ -183,24 +107,6 @@ def reduce_dimensions(route, descriptor: str='half'):
     print('Reduced size of path from {} to {}'.format(len(route[1]), np.shape(reduced)[0]))
 
     return np.asarray_chkfinite(reduced)
- 
-
-def convert_to_np_array(x, y, th):
-    # Converting list to numpy array
-        
-    x_new = np.asarray_chkfinite(x)
-    y_new = np.asarray_chkfinite(y)
-    th_new = np.asarray_chkfinite(th)
-
-    return x_new, y_new, th_new
-
-def save_to_json(l, name, indent: int = None):
-    with open(name, 'w') as f:
-        json.dump(l, f, indent=indent)
-
-def load_from_json(name):
-    with open(name, 'r') as f:
-        return json.load(f)
 
 def distance_traveled(x,y):
     """Computing euclidean distance traveled 
@@ -219,80 +125,52 @@ def distance_traveled(x,y):
 
     return distance
 
-def add_landmark_noise(landmarks, std_th: float=1e-7, std_r: float=1e-7):
+def add_GNSS_noise(x, y, std_gps_x, std_gps_y):
+    """
+    Adding noise to GNSS(GPS) points from ground truth in UTM32
+
+    Args:
+        x ([np.array 1xN]): [x ground truth robot path]
+        y ([np.array 1xN]): [y ground truth robot path]
+        std_gps_x (float, optional): [standard deviation for GPS points in x direction]. 
+        std_gps_y (float, optional): [standard deviation for GPS points in y direction]. 
+    """    
+
+    if (random.random() < 0.9):
+        std_gps_x, std_gps_y = std_gps_x*2, std_gps_y*2
+    else:
+        std_gps_x, std_gps_y = 0.33, 0.1
+
+    noise_x_dir = np.random.normal(0, std_gps_x)
+    noise_y_dir = np.random.normal(0, std_gps_y)
+    x_noise = x + noise_x_dir
+    y_noise = y + noise_y_dir
+
+    return x_noise, y_noise
+
+def add_bearing_noise(bearing, systematic_lm_noise, std_lm_bearing):
+
+    noise = np.random.normal(systematic_lm_noise, std_lm_bearing)
+    
+    return bearing + noise
+
+def add_landmark_noise(landmarks, std_lm_x: float=0.5, std_lm_y: float=0.5):
     new_landmarks = {}
     for key, landmark in landmarks.items():
         for pos in landmark:
             
-            e_th = np.random.normal(1, std_th)
-            e_r = np.random.normal(1, std_r)
-            
-            th = atan2(pos[1], pos[0]) * e_th
-            r = sqrt(pos[0]**2 + pos[1]**2) * e_r
-            # print(f"angle: {th} and range: {r}")
+            noise_x_dir = np.random.normal(0, std_lm_x)
+            noise_y_dir = np.random.normal(0, std_lm_y)
+
+            x_noise = pos[0] + noise_x_dir
+            y_noise = pos[1] + noise_y_dir
 
             new_landmarks.setdefault(key, [])
-            new_landmarks[key].append(([r*cos(th), r*sin(th)]))
+            new_landmarks[key].append(([x_noise, y_noise]))
     
     return new_landmarks
-
-# Trying to impement Thrun noise model algorithm ://
-def addNoisev2(x,y,th):
-
-    xN = np.zeros(len(x)); yN = np.zeros(len(y)); tN = np.zeros(len(th))
-    xN[0] = x[0]; yN[0] = y[0]; tN[0] = th[0]
-
-    for i in range(1, len(x)):
-        
-        p1 = (x[i-1], y[i-1], th[i-1])
-        p2 = (x[i], y[i], th[i])
-
-        T1_w = vec2trans(p1)
-        T2_w = vec2trans(p2)
-
-        T2_1 = np.linalg.inv(T1_w) @ T2_w
-
-        dx = T2_1[0][2]
-        dy = T2_1[1][2]
-
-        trans = sqrt(dx*dx + dy*dy)
-        rot1 = atan2(T2_w[1][2] - T1_w[1][2], T2_w[0][2] - T1_w[0][2]) - atan2(T1_w[1][2], T1_w[0][2])
-        rot2 = atan2(T2_w[1][2], T2_w[0][2]) - atan2(T1_w[1][2], T1_w[0][2]) - rot1
-
-        a1 = 0.005
-        a2 = 1.0*pi/180.0
-        a3 = 0.005
-        a4 = 0.001
-
-        sd_rot1 = a1*abs(rot1) + a2*trans
-        sd_rot2 = a1*abs(rot2) + a2*trans
-        sd_trans = a3*trans + a4*(abs(rot1)) + abs(rot2)
-
-        t = trans + np.random.normal(0, sd_trans*sd_trans)
-        r1 = rot1 + np.random.normal(0, sd_rot1*sd_rot1)
-        r2 = rot2 + np.random.normal(0, sd_rot2*sd_rot2)
-
-        xT = t*cos(atan2(T1_w[1][2], T1_w[0][2]) + r1)
-        yT = t*sin(atan2(T1_w[1][2], T1_w[0][2]) + r1)
-        tT = atan2(T1_w[1][2], T1_w[0][2]) + r1 + r2
-
-        p3 = (xT, yT, tT)
-        TN = vec2trans(p3)
-
-        p1 = (xN[i-1], yN[i-1], tN[i-1])
-        TNN = vec2trans(p1)
-
-        TNNN = TNN @ TN
-
-        xN[i] = TNNN[0][2]
-        yN[i] = TNNN[1][2]
-        tN[i] = atan2(TNN[1, 0], TNNN[0, 0])
-        
-
-    return xN, yN, tN
-
     
-def addNoise(x, y, th):
+def addNoise(x, y, th, std_x, std_y, std_th):
 
     """Takes in odometry values and adding noise in relative pose
 
@@ -324,9 +202,9 @@ def addNoise(x, y, th):
         if(i<5):
             xNoise = 0; yNoise = 0; thNoise = 0
         else:
-            xNoise = np.random.normal(0, 0.01); 
-            yNoise = np.random.normal(0, 0.01); 
-            thNoise = np.random.normal(0, 0.002)
+            xNoise = np.random.normal(0, std_x); 
+            yNoise = np.random.normal(0, std_y); 
+            thNoise = np.random.normal(0, std_th)
 
         del_xN = del_x + xNoise; del_yN = del_y + yNoise; del_thetaN = del_th + thNoise
 
@@ -350,34 +228,18 @@ def addNoise(x, y, th):
 
     return xN, yN, tN
 
-def vec2trans(p):
-    T = np.array([[cos(p[2]), -sin(p[2]), p[0]], 
-                 [sin(p[2]),  cos(p[2]), p[1]], 
-                 [0, 0, 1]])
-    return T    
+def calc_bearing(x1, y1, x2, y2):
+    return atan2((y2 - y1), (x2 - x1))
 
-def relative_position(x, y, th):
-    # Route should contain x, y, theta in cartesian absolute coordinates
-    # Returns robot path in relative coordinates
+def calculate_angles(route):
+    # Calculating angle between two points
+    angles = [atan2((y2 - y1), (x2 - x1)) for (x1, y1), (x2, y2) in zip(route[:-1], route[1:])]
 
-    x_start = x[0]
-    y_start = y[0]
-
-    x_relative = []
-    y_relative = []
-
-    for i in len(x):
-
-        x_relative.append(x_start - x[i])
-        y_relative.append(y_start - y[i])
-
-    x_relative, y_relative = x_relative * np.cos(-th) - y_relative * np.sin(-th), \
-                             x_relative * np.sin(-th) + y_relative * np.cos(-th)
-
-    return x_relative, y_relative
+    return angles
 
 def RMSE(predicted, actual):
     return np.square(np.subtract(actual,predicted)).mean() 
 
 def MAE(predicted, actual):
     return abs(np.subtract(actual, predicted)).mean()
+

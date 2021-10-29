@@ -17,6 +17,7 @@ from utm.conversion import from_latlon
 
 sys.path.append('g2o_generator/robosim')
 from lib.utility import *
+from lib.helpers import *
 
 class read_csv():
 
@@ -87,11 +88,10 @@ class read_csv():
         return self.rowPoints, self.rowPoly
 
         
-    def squeeze_polygons(self, polygon, plot: bool):
+    def squeeze_polygons(self, polygon):
         
         poly_stack = []
         poly_area = []
-        x_casc, y_casc = [], []
 
         for poly in polygon:
 
@@ -109,30 +109,28 @@ class read_csv():
             if area < 100000:
                 poly_stack.append(self.polygon_final)
         
-        cascade = so.cascaded_union(poly_stack)
-        
-        # coordslist = [poly.exterior.coords for poly in list(cascade.geoms)]
-        
-        # for coord in coordslist:
-        #     temp_coord = coord[0]
-        #     xc, yc = temp_coord
-        #     x_casc.append(xc), y_casc.append(yc)
+        return so.cascaded_union(poly_stack)
+    
 
-        if plot:
-            _, axs = plt.subplots()
-            axs.set_aspect('equal', 'datalim')
+    def plot_map(self, landmarks_input, show: bool):
 
-            for geom in cascade.geoms:
-                x_casc, y_casc = geom.exterior.xy
-                axs.fill(x_casc, y_casc, alpha=0.5, fc='b', ec='none')
-        else:
-            return poly_stack
+        cascaded_poly = self.squeeze_polygons(self.rowPoly)
 
-    def plot_map(self, landmarks_input, show: bool = 0, save: bool = 0, filename: str = 'g2o_generator/GIS_Extraction/plots/GIS_map'):
+        _, axs = plt.subplots()
+        axs.set_aspect('equal', 'datalim')
 
-        self.squeeze_polygons(self.rowPoly, plot=True)
+        for geom in cascaded_poly.geoms:
+            x_casc, y_casc = geom.exterior.xy
+            axs.fill(x_casc, y_casc, alpha=0.5, fc='b', ec='none')
 
-        landmarks = landmarks_input.items()
+        self.plot_landmarks(landmarks=landmarks_input)
+
+        if show:
+            plt.show()
+
+    def plot_landmarks(self, landmarks):
+
+        landmarks = landmarks.items()
         cmap = ListedColormap(["cyan", "darkblue", "magenta", "springgreen", "orange"])
         ax = plt.gca()
         colors = cmap(np.linspace(0, 1, len(landmarks)))
@@ -145,18 +143,7 @@ class read_csv():
                 fx.append(x), fy.append(y)
             ax.scatter(fx, fy, zorder=2, s=10, color=colors[idx], label=key)
         
-        # plt.xlim(min(self.scalex), max(self.scalex))
-        # plt.ylim(min(self.scaley), max(self.scaley))
         plt.legend()
-
-        if save:
-            i = 0
-            while os.path.exists('{}{:d}.png'.format(filename, i)):
-                i += 1
-            plt.savefig('{}{:d}.png'.format(filename, i), format='png')
-
-        if show:
-            plt.show()
 
     @staticmethod
     def to_utm(lat, lon):
@@ -169,7 +156,7 @@ def main():
     filenamePoly = 'g2o_generator/GIS_Extraction/data/aarhus_polygons_v2.csv'
     aarhus = read_csv(filenamePoints, filenamePoly)
     landmarks, _ = aarhus.read()
-    aarhus.plot_map(landmarks, save=0, show=True)
+    aarhus.plot_map(landmarks, show=True)
 
 
 if __name__ == "__main__":

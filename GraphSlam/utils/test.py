@@ -1,35 +1,16 @@
 import numpy as np
-from utility import Graph
-import os
-import primitives
-import inspect
-
-# print(elems[0:])
-#print(os.getcwd())
-file = 'GraphSlam/data/sim_pose_landmark_data.g2o'
-
-read_file = Graph.read_G2O(file)
 
 
-poses, landmarks = [], []
+omega = np.zeros((3*3+2*3,3*10+2*3))
+omega[0:3, 0:3] = 1.0 * np.identity(3)
+observe = np.full((3,3), False)
+# print(observe)
+# print(omega)
+G = np.identity(3)
+G_extend = np.zeros((3, 6))
 
-for id in read_file.nodes:
-            
-    if type(read_file.nodes[id]) == primitives.Pose:
-        poses.append(read_file.nodes[id])
-    
-    elif type(read_file.nodes[id]) == primitives.Point:
-        landmarks.append(read_file.nodes[id])
+print(G_extend)
+G_extend[:, 0:3] = -G
+G_extend[:, 3:6] = np.identity(3)
 
-print(poses[5])
-print(landmarks[5])
-inspect.getmembers(primitives, lambda a:not(inspect.isroutine(Pose)))
-
-# tp = type(read_file.nodes[1])
-
-
-
-# if tp == primitives.Point:
-#     print('its a point!')
-# else:
-#     print('Its not a point')
+print(G_extend)
