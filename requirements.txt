@@ -1,3 +1,5 @@
+numpy==1.21.2
+scipy==1.7.1
 certifi==2021.10.8
 charset-normalizer==2.0.7
 cycler==0.10.0
@@ -16,3 +18,6 @@ six==1.16.0
 tqdm==4.62.3
 urllib3==1.26.7
 utm==0.7.0
+scipy==1.7.1
+wincertstore==0.2
+
