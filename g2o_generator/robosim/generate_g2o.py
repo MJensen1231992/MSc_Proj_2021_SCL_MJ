@@ -71,7 +71,7 @@ class g2o:
     def generate_g2o(self, plot: bool=False, plot_constraints: bool=False, plot_robot_heading: bool=False):
 
         # Write g2o file
-        g2oW = self.writeOdometry(self.xN, self.yN, self.thN, self.landmarks)
+        g2oW = self.write_basics(self.xN, self.yN, self.thN, self.landmarks)
         self.do_loop_closure(self.x, self.y, self.th, self.xN, self.yN, self.thN, g2oW)
         
         print("RMSE: {:.2f} \t|\t MAE: {:.2f}".format(RMSE(np.array([self.xN, self.yN]), np.array([self.x, self.y])), \
@@ -81,7 +81,7 @@ class g2o:
 
         if plot:
             # Plotting:
-            self.aarhus.plot_map(self.landmarks)
+            self.aarhus.plot_map(self.landmarks, show=False)
             if plot_constraints:
                 self.plot_constraints()
 
@@ -104,7 +104,7 @@ class g2o:
             plt.show()
 
 
-    def writeOdometry(self, x, y, theta, landmarks):
+    def write_basics(self, x, y, theta, landmarks):
         g2oW = open('g2o_generator/robosim/data/g2o/noise_'+self.time_stamp+'.g2o', 'w')
         points =  [[x, y] for x, y in zip(self.x, self.y)]
         self.n_landmarks = 0
