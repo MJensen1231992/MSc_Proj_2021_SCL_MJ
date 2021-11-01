@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import tkinter as tk
 import sys
 sys.path.append('g2o_generator/GIS_Extraction')
 
@@ -9,7 +10,7 @@ from lib.utility import *
 
 
 class world:
-    def __init__(self, OSM_polygons: str, OSM_features: str, landmarks: str, save_path: bool = False,
+    def __init__(self, OSM_polygons: str, OSM_features: str, landmarks: str, set_xlim: list, set_ylim: list, save_path: bool = False,
                  load_path: bool = False, route_name: str = 'Aarhus_path1.json', GNSS_frequency: int = 10):
         """
         csv_info takes in csv file for landmarks and csv file for polygons
@@ -18,6 +19,10 @@ class world:
         self.load_path = load_path
         self.save_path = save_path
         self.route_name = route_name
+        
+        # Variables
+        self.set_xlim = set_xlim
+        self.set_ylim = set_ylim
 
         self.aarhus = GIS.read_csv(OSM_polygons, OSM_features)
         self.rowPoints, self.rowPoly = self.aarhus.read()
@@ -38,9 +43,13 @@ class world:
 
     # Draw points using mouse for plt figures
     def get_points(self, event):
+
         x = float(event.xdata)
         y = float(event.ydata)
+        self.axs.scatter(x,y, color='black')
+        self.fig.canvas.draw()
         self.route.append([x, y])
+
 
 
     def make_robot_path(self):
@@ -52,24 +61,24 @@ class world:
 
         # If we do not have a robot path saved in 'sideProjects/robosim/data' then set 'save_path=True'
         if self.save_path:
-            
             self.route = []
 
             cascaded_poly = self.aarhus.squeeze_polygons(self.rowPoly)
 
-            fig, axs = plt.subplots()
-            axs.set_aspect('equal', 'datalim')
+            self.fig, self.axs = plt.subplots()
+            self.axs.set_aspect('equal', 'datalim')
+            
 
             for geom in cascaded_poly.geoms:
                 x_casc, y_casc = geom.exterior.xy
-                axs.fill(x_casc, y_casc, alpha=0.5, fc='b', ec='none')
+                self.axs.fill(x_casc, y_casc, alpha=0.5, fc='b', ec='none')
             
             self.aarhus.plot_landmarks(self.landmarks)
 
-            fig.canvas.mpl_connect('button_press_event', self.get_points)
+            self.fig.canvas.mpl_connect('button_press_event', self.get_points)
 
-            axs.set_ylim(6222368, 6222683)
-            axs.set_xlim(574714, 575168)
+            self.axs.set_ylim(min(self.set_ylim), max(self.set_ylim))
+            self.axs.set_xlim(min(self.set_xlim), max(self.set_xlim))
 
             plt.show()
 
@@ -103,8 +112,11 @@ def main():
     landmarks = './g2o_generator/GIS_Extraction/landmarks/landmarks_w_types.json'
     route_name = 'brbr.json'
 
-    show = world(filenamePoints, filenamePoly, landmarks, route_name=route_name, save_path=True, load_path=False)
-    show.make_robot_path(set_name=False)
+    set_xlim = [574714, 575168]
+    set_ylim = [6222368, 6222683]
+
+    show = world(filenamePoints, filenamePoly, landmarks, route_name=route_name, save_path=True, load_path=False, set_xlim=set_xlim, set_ylim=set_ylim)
+    show.make_robot_path()
   
 
 if __name__ == "__main__":
