@@ -8,7 +8,6 @@ warnings.filterwarnings("ignore")
 
 import matplotlib.pyplot as plt
 import numpy as np
-import pygame
 import shapely.geometry as sg
 import shapely.ops as so
 import utm

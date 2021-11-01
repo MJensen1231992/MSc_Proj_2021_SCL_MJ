@@ -1,6 +1,5 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import tkinter as tk
 import sys
 sys.path.append('g2o_generator/GIS_Extraction')
 
@@ -100,9 +99,6 @@ class world:
 
             return './g2o_generator/robosim/data/robopath/'+self.route_name+'.json'
 
-
-
-    
 
 
 def main():
