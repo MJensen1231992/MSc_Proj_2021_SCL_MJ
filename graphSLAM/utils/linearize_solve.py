@@ -50,7 +50,8 @@ def linearize_solve(graph, needToAddPrior=True):
 
             
             if needToAddPrior:
-                H[fromIdx:fromIdx + 3, fromIdx:fromIdx + 3] = H[fromIdx:fromIdx + 3, fromIdx:fromIdx + 3] + 1000 * np.eye(3)
+                H[fromIdx:fromIdx + 3, fromIdx:fromIdx + 3] = H[fromIdx:fromIdx + 3, fromIdx:fromIdx + 3] + 1 * np.eye(3)
+                print(f"H prior {H}")
                 needToAddPrior = False
 
             #adding them to H and b in respective places
@@ -144,7 +145,7 @@ def linearize_solve(graph, needToAddPrior=True):
             b[fromIdx:fromIdx+3] += b_i
             b[toIdx:toIdx+2] += b_j
             
-    is_pos_def(H)
+    
     H_sparse = csr_matrix(H)
 
     sparse_dxstar = spsolve(H_sparse,-b)

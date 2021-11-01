@@ -1,7 +1,8 @@
 import numpy as np
 from numpy.linalg import inv
 from helper import *
-def compute_error(graph):
+
+def compute_global_error(graph):
     
     err_Full = 0 
     err_Land = 0
@@ -19,7 +20,6 @@ def compute_error(graph):
             x2 = graph.x[toIdx:toIdx+3]
 
             z_12 = edge.poseMeasurement
-            omega_12 = edge.information
 
             x1_inv_trans = inv(vec2trans(x1))
             x2_trans = vec2trans(x2)
@@ -30,6 +30,7 @@ def compute_error(graph):
             err_Full += np.linalg.norm(trans2vec(np.dot(z_12_inv,np.dot(x2_trans,x1_inv_trans))))
             #err_Pose += np.linalg.norm(trans2vec(np.dot(z_12_inv,np.dot(x2_trans,x1_inv_trans))))
             err_Pose += trans2vec(np.dot(z_12_inv,np.dot(x2_trans,x1_inv_trans)))
+            
 
             
         elif edge.Type == 'L':
@@ -45,9 +46,10 @@ def compute_error(graph):
             x_inv_trans = inv(vec2trans(x))[:2, :2]
             landEdge = np.expand_dims(landEdge,axis=1)
             z = np.expand_dims(z,axis=1)
-        
+
+            #print(f"check errors, x_inv_trans = {x_inv_trans}\n landedge: {landEdge}\n meas z : {z}")
             err_Full += np.linalg.norm(np.dot(x_inv_trans,landEdge) - z)
-            err_Land += np.linalg.norm(np.dot(x_inv_trans,landEdge) - z)
+            err_Land += (np.dot(x_inv_trans,landEdge) - z)
 
         elif edge.Type == 'G':
 
@@ -64,6 +66,6 @@ def compute_error(graph):
             z = np.expand_dims(z,axis=1)
            
             err_Full += np.linalg.norm(np.dot(x_inv_trans,gpsEdge) - z)
-            err_GPS += np.linalg.norm(np.dot(x_inv_trans,gpsEdge) - z)
+            err_GPS += (np.dot(x_inv_trans,gpsEdge) - z)
     
     return err_Full, err_Pose, err_Land, err_GPS

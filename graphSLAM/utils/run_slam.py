@@ -1,4 +1,5 @@
 #from os import read, readlink
+from os import error
 import warnings
 import numpy as np
 from numpy.linalg import inv
@@ -11,7 +12,7 @@ from scipy.sparse.linalg import spsolve
 from linearize_solve import *
 from helper import *
 from error import *
-from graph_plot import graph_plot
+from graph_plot import *
 from g2o_loader import load_g2o_graph
 
 warnings.filterwarnings('ignore')
@@ -31,7 +32,7 @@ class G2O:
     def __init__(self, filename):
         
         self.graph = load_g2o_graph(filename,noBearing=True)
-        self.error = compute_error(self.graph)
+        self.error = compute_global_error(self.graph)
 
 
 def graph_slam_run_algorithm(graph, numIter):
@@ -42,18 +43,27 @@ def graph_slam_run_algorithm(graph, numIter):
     err_opt_f = []
     err_diff = []
     diff = []
+    e_pose = []
+    e_land = []
+    e_gps = []
     graph_plot(graph, animate=True,landmarkEdgesPlot=True)
 
     for i in range(numIter):
 
-        # error_before, _ , _ = compute_error(graph)
-        # print(f"error: {error_before}")
-        # err_opt_f.append(error_before)
-        # if i>0:
-        #     err_diff = err_opt_f[i-1]-err_opt_f[i]
-        #     print(f"error diff : {err_diff}")
-        #     if err_diff < 0:
-        #         print("Error is larger than previous iteration")
+        error_before, err_pose , err_land , err_gps = compute_global_error(graph)
+        #print(f"error: {error_before}")
+        err_opt_f.append(error_before)
+        #e_pose.setdefault(i, [])
+        #e_pose[i].append(err_pose)
+        e_pose.append(err_pose)
+        e_land.append(err_land)
+        e_gps.append(err_gps)
+
+        if i>0:
+            err_diff = err_opt_f[i-1]-err_opt_f[i]
+            print(f"error diff : {err_diff}")
+            if err_diff < 0:
+                print("Error is larger than previous iteration")
 
         diff = np.append(diff,err_diff)
         
@@ -73,7 +83,8 @@ def graph_slam_run_algorithm(graph, numIter):
             break
 
     #print(f"error diff array: {diff}")
-    
+
+    plot_errors(e_pose,e_land,e_gps)
     return norm_dX_all
 
 if __name__ == '__main__' :
@@ -97,9 +108,17 @@ if __name__ == '__main__' :
     #plt.spy(H_s)
     #plt.show()
     
-    SPL_SLAM = G2O('graphSLAM/data/noise_20211028-111707.g2o')
+    noise = G2O('graphSLAM/data/noise_20211101-154600.g2o')
+    ground = G2O('graphSLAM/data/ground_truth_20211101-154600.g2o')
     
-    k = SPL_SLAM.graph
+    n_graph = noise.graph
+    g_graph = ground.graph
+    
+    plot_ground_together_noise(g_graph,n_graph)
+    
+    
+   # plt.show()
+    
     # kerror,_,_,_ = SPL_SLAM.error
     # print(kerror)
-    dx = graph_slam_run_algorithm(k,2)
+    dx = graph_slam_run_algorithm(n_graph,10)

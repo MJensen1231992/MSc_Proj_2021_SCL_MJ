@@ -7,7 +7,7 @@ from helper import from_uppertri_to_full
 def load_g2o_graph(filename, noBearing=True):
     
     Edge = namedtuple(
-        'Edge', ['Type', 'nodeFrom', 'nodeTo', 'poseMeasurement', 'information' ] # g2o format of files.
+        'Edge', ['Type', 'nodeFrom', 'nodeTo', 'poseMeasurement', 'information'] # g2o format of files.
     )
     nodesToland = []
     edges = []
@@ -27,9 +27,7 @@ def load_g2o_graph(filename, noBearing=True):
             elif data[0] == 'VERTEX_XY':
                 nodeType = 'VXY'
                 nodeId = int(data[1])
-                landmark = np.array(data[2:4],dtype=np.float64)
-                k = (landmark[1]/landmark[0])
-                
+                landmark = np.array(data[2:4],dtype=np.float64)  
                 nodes[nodeId] = landmark
                 nodeTypes[nodeId] = nodeType
 
@@ -37,7 +35,6 @@ def load_g2o_graph(filename, noBearing=True):
                 nodeType = 'VGPS'
                 nodeId = int(data[1])
                 gps_point = np.array(data[2:4],dtype=np.float64)
-                
                 nodes[nodeId] = gps_point
                 nodeTypes[nodeId] = nodeType
 
@@ -60,43 +57,31 @@ def load_g2o_graph(filename, noBearing=True):
                 
                 if noBearing: #If we dont have any bearing to landmark
                     poseMeasurement = np.array(data[3:5],dtype=np.float64)
-                    #print(f"landmarkMeasurement:{poseMeasurement}\n")
                     upperTriangle = np.array(data[9:12],dtype=np.float64)
                     information = from_uppertri_to_full(upperTriangle,2)
-                    #information = np.array([[upperTriangle[0], upperTriangle[1]],
-                    #                        [upperTriangle[1], (upperTriangle[2])]])
                     
                 else: #If we need landmark bearing
                     poseMeasurement = np.array(data[3:6],dtype=np.float64)
                     upperTriangle = np.array(data[6:12],dtype=np.float64)
                     information = from_uppertri_to_full(upperTriangle,3)
-                    # information =  np.array([[upperTriangle[0], upperTriangle[1], upperTriangle[2]],
-                    #                     [upperTriangle[1], upperTriangle[3], upperTriangle[4]],
-                    #                     [upperTriangle[2], upperTriangle[4], upperTriangle[5]]])
 
-                edge = Edge(Type, nodeFrom,nodeTo, poseMeasurement, information)
+                edge = Edge(Type, nodeFrom, nodeTo, poseMeasurement, information)
                 edges.append(edge)
-                nodesToland = np.append(nodesToland,nodeTo)  
-                #print(edge.Type)
+                
 
             elif data[0] == 'EDGE_SE2_GPS':
                 Type = 'G' #landmark type
                 nodeFrom = int(data[1])
                 nodeTo = int(data[2])                
                 poseMeasurement = np.array(data[3:5],dtype=np.float64)
-                #print(f"landmarkMeasurement:{poseMeasurement}\n")
                 upperTriangle = np.array(data[5:8],dtype=np.float64)
                 information = from_uppertri_to_full(upperTriangle,2)
-                # information = np.array([[upperTriangle[0], upperTriangle[1]],
-                #                         [upperTriangle[1], (upperTriangle[2])]])
 
                 edge = Edge(Type, nodeFrom,nodeTo, poseMeasurement, information)
                 edges.append(edge)
 
             else: 
                 print("error, edge/vertex not defined")
-    # p = list(dict.fromkeys(nodesToland))
-    # p_sort = sorted(p)
 
     lut = {}
     x = []
