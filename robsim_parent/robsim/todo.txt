@@ -1,4 +1,0 @@
-TODO:
-- GIS Errors: Recall / error
-- Heading-only Landmark Detections
-- Erroneous Matches
