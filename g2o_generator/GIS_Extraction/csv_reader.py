@@ -8,7 +8,6 @@ warnings.filterwarnings("ignore")
 
 import matplotlib.pyplot as plt
 import numpy as np
-from numpy.core.function_base import linspace
 import shapely.geometry as sg
 import shapely.ops as so
 import utm
@@ -113,15 +112,40 @@ class read_csv():
     
 
     def plot_map(self, landmarks_input, show: bool):
+        
+        # l = []
+        # world_running = True
 
         cascaded_poly = self.squeeze_polygons(self.rowPoly)
 
         _, axs = plt.subplots()
         axs.set_aspect('equal', 'datalim')
 
+        # world = pygame.display.set_mode((800,600))
         for geom in cascaded_poly.geoms:
+            # print(geom)
+
+            x_casc, y_casc = geom.exterior.xy
+        #     for x_casc, y_casc in zip(x_casc, y_casc):
+        #         l.append((x_casc, y_casc))
+        #     # print(l)
+            
+
             x_casc, y_casc = geom.exterior.xy
             axs.fill(x_casc, y_casc, alpha=0.5, fc='b', ec='none')
+
+        # while world_running:
+            
+        #     for event in pygame.event.get():
+        #         # If user press 'X' world will close
+        #         if event.type == pygame.QUIT:
+        #             world_running = False
+
+        #     world.fill((255,255,255))
+            # pygame.draw.polygon(world, (40,255,40), l)
+            
+            # pygame.draw.polygon(world, (0,0,0), l)
+            # pygame.display.update()
 
         self.plot_landmarks(landmarks=landmarks_input)
 

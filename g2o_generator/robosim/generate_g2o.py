@@ -28,8 +28,8 @@ class g2o:
         self.time_stamp = time.strftime("%Y%m%d-%H%M%S")
 
         std_gnss_x = 0.33; std_gnss_y = 0.33
-        std_odo_x = 0.05; std_odo_y = 0.09; std_odo_th = deg2rad(2)*0.1
-        std_lm_x = 0.5; std_lm_y = 0.5; std_lm_th = deg2rad(2)*0.1
+        std_odo_x = 0.05; std_odo_y = 0.09; std_odo_th = deg2rad(2)
+        std_lm_x = 0.5; std_lm_y = 0.5; std_lm_th = deg2rad(2)
 
         # Information matrices: 
         # Odometry
@@ -86,7 +86,6 @@ class g2o:
                 self.plot_constraints()
 
             if plot_robot_heading:
-                # pass
                 robot_heading(self.x, self.y, self.th, color="blue", length=1)
                 robot_heading(self.xN, self.yN, self.thN, color="red", length=1)
                 robot_heading(lm_x, lm_y, lm_th, color="green", length=0.4)
