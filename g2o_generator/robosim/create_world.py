@@ -76,28 +76,33 @@ class world:
 
             self.fig.canvas.mpl_connect('button_press_event', self.get_points)
 
-            self.axs.set_ylim(min(self.set_ylim), max(self.set_ylim))
-            self.axs.set_xlim(min(self.set_xlim), max(self.set_xlim))
+            try:
+                self.axs.set_ylim(min(self.set_ylim), max(self.set_ylim))
+                self.axs.set_xlim(min(self.set_xlim), max(self.set_xlim))
 
-            plt.show()
+                plt.show()
 
-            # Smoothening of route using splines
-            full_route = do_rom_splines(self.route)
-            full_route = [[pose[0], pose[1]] for pose in full_route]
+                # Smoothening of route using splines
+                full_route = do_rom_splines(self.route)
+                full_route = [[pose[0], pose[1]] for pose in full_route]
 
-            # Atan2 to calculate angles between all poses
-            angles = calculate_angles(full_route)
+                # Atan2 to calculate angles between all poses
+                angles = calculate_angles(full_route)
 
-            full_route_poses = [[pose[0], pose[1], theta] for pose, theta in zip(full_route, angles)]
-            x_odo, y_odo, th_odo = zip(*full_route_poses)
+                full_route_poses = [[pose[0], pose[1], theta] for pose, theta in zip(full_route, angles)]
+                x_odo, y_odo, th_odo = zip(*full_route_poses)
 
 
-            # Saving the reduced route to json file 
-            json_path = np.array([x_odo, y_odo, th_odo])
-            json_path1 = json_path.tolist()
-            save_to_json(json_path1,'./g2o_generator/robosim/data/robopath/'+self.route_name+'.json')
+                # Saving the reduced route to json file 
+                json_path = np.array([x_odo, y_odo, th_odo])
+                json_path1 = json_path.tolist()
+                save_to_json(json_path1,'./g2o_generator/robosim/data/robopath/'+self.route_name+'.json')
 
-            return './g2o_generator/robosim/data/robopath/'+self.route_name+'.json'
+                return './g2o_generator/robosim/data/robopath/'+self.route_name+'.json'
+
+            except:
+                print("No robot path chosen \nLeft-click on plot in window to generate robot path")
+                sys.exit()
 
 
 
