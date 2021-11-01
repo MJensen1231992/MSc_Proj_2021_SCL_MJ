@@ -106,7 +106,7 @@ def main():
     filenamePoints = 'g2o_generator/GIS_Extraction/data/aarhus_features_v2.csv'
     filenamePoly = 'g2o_generator/GIS_Extraction/data/aarhus_polygons_v2.csv'
     landmarks = './g2o_generator/GIS_Extraction/landmarks/landmarks_w_types.json'
-    route_name = 'brbr.json'
+    route_name = 'brbr'
 
     set_xlim = [574714, 575168]
     set_ylim = [6222368, 6222683]
