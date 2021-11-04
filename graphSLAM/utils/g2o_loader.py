@@ -4,7 +4,7 @@ import numpy as np
 from numpy.linalg import inv
 from helper import from_uppertri_to_full
 
-def load_g2o_graph(filename, noBearing=True):
+def load_g2o_graph(filename, noBearing=True, own_data=True):
     
     Edge = namedtuple(
         'Edge', ['Type', 'nodeFrom', 'nodeTo', 'poseMeasurement', 'information'] # g2o format of files.
@@ -55,10 +55,19 @@ def load_g2o_graph(filename, noBearing=True):
                 nodeFrom = int(data[1])
                 nodeTo = int(data[2])
                 
-                if noBearing: #If we dont have any bearing to landmark
+                if noBearing: #and own_data: #If we dont have any bearing to landmark
                     poseMeasurement = np.array(data[3:5],dtype=np.float64)
-                    upperTriangle = np.array(data[9:12],dtype=np.float64)
+                    #upperTriangle = np.hstack((np.array(data[5:7]),np.array(data[8])))
+                    upperTriangle = np.array(data[5:8],dtype=np.float64)
                     information = from_uppertri_to_full(upperTriangle,2)
+                    #print(f"info :{information}")
+                
+                # if noBearing and not own_data:
+                #     poseMeasurement = np.array(data[3:5],dtype=np.float64)
+                #     #upperTriangle = np.hstack((np.array(data[5:7]),np.array(data[8])))
+                #     upperTriangle = np.array(data[5:8],dtype=np.float64)
+                #     information = from_uppertri_to_full(upperTriangle,2)
+                #     #print(f"info :{information}")
                     
                 else: #If we need landmark bearing
                     poseMeasurement = np.array(data[3:6],dtype=np.float64)
@@ -94,7 +103,8 @@ def load_g2o_graph(filename, noBearing=True):
     
     # collect nodes, edges and lookup in graph structure
     from run_slam import Graph
-    graph = Graph(x, nodes, edges, lut, nodeTypes)
+    lambdaH = 1
+    graph = Graph(x, nodes, edges, lut, nodeTypes,lambdaH)
     
     print('Loaded graph with {} nodes and {} edges'.format(
         len(graph.nodes), len(graph.edges)))

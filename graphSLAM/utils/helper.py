@@ -24,6 +24,7 @@ def get_poses_landmarks(graph):
             gps.append(gp)
 
     return poses, landmarks, gps
+    
 def vec2trans(pose):
 
     c = np.cos([pose[2]])
@@ -67,3 +68,16 @@ def from_uppertri_to_full(arr, n):
     mat[tril1] = mat[triu1]
 
     return mat
+
+def vision_length_check(graph):
+    
+    ks= []
+    for edge in graph.edges:
+        if edge.Type == 'L':
+            x = (np.abs(edge.poseMeasurement[0]))
+            y = (np.abs(edge.poseMeasurement[1]))
+
+            
+            ks.append(np.sqrt([x**2+y**2]))
+    #plot_ground_together_noise(g_graph,n_graph)
+    print(max(ks))

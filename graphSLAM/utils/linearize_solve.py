@@ -9,6 +9,7 @@ from scipy.sparse import csr_matrix
 from scipy.sparse.linalg import spsolve
 from run_slam import *
 from helper import *
+from error import *
 #from scipy.optimize import least_squares
 
 def information_matrix(graph):
@@ -23,8 +24,9 @@ def information_matrix(graph):
 
     return H,b 
 
-def linearize_solve(graph, needToAddPrior=True):
-    
+def linearize_solve(graph, lambdaH: float = 1.0, needToAddPrior=True, dcs=True):
+
+    phi = 1
     H, b = information_matrix(graph)
     
     for edge in graph.edges:
@@ -39,8 +41,22 @@ def linearize_solve(graph, needToAddPrior=True):
             z_ij = edge.poseMeasurement
             omega_ij = edge.information
 
+            #print(f"pre omega:\n{omega_ij}")
+
             error, A, B = pose_pose_constraints(x_i, x_j, z_ij)
+            pose_error = iterative_global_poseerror(x_i,x_j,z_ij)
             
+            #print(f"error:\n{error}\n, poseerror:\n{pose_error}\n pose_A_jac:\n{A}\n pose_B_jac:\n{B}\n")
+            
+
+            if dcs:
+                s_ij = dynamic_covariance_scaling(pose_error, phi)
+                omega_ij = (s_ij**2)*omega_ij
+                #print(f"pose_error iter:\n{pose_error}\n")#s_ij : {s_ij}\n post omega:\n{omega_ij}\n 
+                
+
+            #print(f"iterative pose :{pose_error}")
+
             b_i = np.dot(np.dot(A.T,omega_ij), error).reshape(3,1)
             b_j = np.dot(np.dot(B.T,omega_ij), error).reshape(3,1)
             H_ii = np.dot(np.dot(A.T,omega_ij), A) 
@@ -50,8 +66,8 @@ def linearize_solve(graph, needToAddPrior=True):
 
             
             if needToAddPrior:
-                H[fromIdx:fromIdx + 3, fromIdx:fromIdx + 3] = H[fromIdx:fromIdx + 3, fromIdx:fromIdx + 3] + 1 * np.eye(3)
-                print(f"H prior {H}")
+                H[fromIdx:fromIdx + 3, fromIdx:fromIdx + 3] = H[fromIdx:fromIdx + 3, fromIdx:fromIdx + 3] + 1000 * np.eye(3)
+                
                 needToAddPrior = False
 
             #adding them to H and b in respective places
@@ -70,14 +86,24 @@ def linearize_solve(graph, needToAddPrior=True):
 
             fromIdx = graph.lut[edge.nodeFrom]
             toIdx = graph.lut[edge.nodeTo]
-
-            x_l = graph.x[fromIdx:fromIdx+3]
+            #x_i is robot pose
+            x_i = graph.x[fromIdx:fromIdx+3]
             z_ij = edge.poseMeasurement
             omega_ij = edge.information
 
             if graph.withoutBearing: 
+                #l is landmark pose
                 l = graph.x[toIdx:toIdx+2]
-                error , A, B = pose_landmark_constraints(x_l, l, z_ij)
+
+                error , A, B = pose_landmark_constraints(x_i, l, z_ij)
+                land_error = iterative_global_landerror(x_i,l,z_ij)
+                #print(f"error {error}, poseerror{land_error}")
+                
+                if dcs:
+                   s_ij = dynamic_covariance_scaling(land_error, phi)
+                   omega_ij = (s_ij**2)*omega_ij
+                   #print(f"land_error iter:\n{land_error}\n")#s_ij : {s_ij}\n post omega:\n{omega_ij}\n 
+
                 b_i = np.dot(np.dot(A.T,omega_ij), error).reshape(3,1)
                 b_j = np.dot(np.dot(B.T,omega_ij), error).reshape(2,1)
                 H_ii = np.dot(np.dot(A.T,omega_ij), A) 
@@ -128,6 +154,10 @@ def linearize_solve(graph, needToAddPrior=True):
 
             #print(f"l from linearize{g}")
             error , A, B = pose_gps_constraints(x_g, g, z_ij)
+            #gps_error = iterative_global_landerror(x_g, g, z_ij)
+            #if dcs:
+            #    s_ij = dynamic_covariance_scaling(gps_error, phi)
+            #    omega_ij = (s_ij**2)*omega_ij
             b_i = np.dot(np.dot(A.T,omega_ij), error).reshape(3,1)
             b_j = np.dot(np.dot(B.T,omega_ij), error).reshape(2,1)
             H_ii = np.dot(np.dot(A.T,omega_ij), A) 
@@ -144,8 +174,10 @@ def linearize_solve(graph, needToAddPrior=True):
 
             b[fromIdx:fromIdx+3] += b_i
             b[toIdx:toIdx+2] += b_j
-            
     
+    
+    #H = (H+lambdaH*np.eye(H.shape[0]))
+    #print(f"H is:\n {H}\n")
     H_sparse = csr_matrix(H)
 
     sparse_dxstar = spsolve(H_sparse,-b)
@@ -175,19 +207,29 @@ def pose_pose_constraints(xi,xj,zij):
               [np.cos(theta_i), -np.sin(theta_i)]])
 
     #from appendix tutorial on graphbased slam.
+    #Error functions from linearization
     e_xy = np.dot(np.dot(R_ij.T, R_i.T), t_j-t_i)-np.dot(R_ij.T, t_ij)  
+    #e_xy_test = R_ij.T@(R_i.T@(t_j-t_i)-t_ij)
     e_ang = theta_j - theta_i - theta_ij 
-    e_full = np.vstack((e_xy,e_ang))
+    e_ang_gold = theta_ij - (theta_j-theta_i)
+    e_ang_gold_norm = wrap2pi(wrap2pi(theta_j-theta_i)-theta_ij)
+    #print(f"e_ang:\n{e_ang}\n e_ang_gold:\n{e_ang_gold}\n e_ang_gold_norm:\n{e_ang_gold_norm}\n")
+    e_full = np.vstack((e_xy,e_ang_gold_norm))
 
+   
+
+    #Jacobian of e_ij wrt. x_i
     A_11 = np.dot(-R_ij.T,R_i.T)
     A_12 = np.dot(np.dot(R_ij.T, dR_i.T), t_j-t_i)
     A_21_22 = np.array([0,0,-1])
     A_ij = np.vstack((np.hstack((A_11,A_12)),A_21_22))
 
+    #Jacobian of e_ij wrt. x_j
     B_11 = np.dot(R_ij.T,R_i.T)
     B_12 = np.zeros((2,1),dtype=np.float64)
     B_21_22 = np.array([0,0,1])
     B_ij = np.vstack((np.hstack((B_11,B_12)),B_21_22))
+    
     
     return e_full, A_ij, B_ij
 
@@ -215,7 +257,11 @@ def pose_landmark_constraints_bearing(x,l,z):
 
     #from appendix tutorial on graphbased slam.
     e_xy = np.dot(np.dot(R_ij.T, R_i.T), t_j-t_i)-np.dot(R_ij.T, t_ij)  
-    e_ang = theta_j - theta_i - theta_ij 
+    e_ang = theta_j - theta_i - theta_ij
+   
+
+    
+
     e_full = np.vstack((e_xy,e_ang))
 
     A_11 = np.dot(-R_ij.T,R_i.T)
@@ -241,18 +287,20 @@ def pose_landmark_constraints(x, l, z):
 
     R_i = vec2trans(x)[:2, :2] # rotational part
     dR_i = np.array([[-np.sin(theta_i), -np.cos(theta_i)],
-                     [np.cos(theta_i), -np.sin(theta_i)]])
+                    [np.cos(theta_i), -np.sin(theta_i)]])
 
     e_full = np.dot(R_i.T, x_l-t_i) - z_il #landmarkslam freiburg pdf
     #bearing only
     #e_bearing = atan2((x_l[x]-ti[y],x_l[x]-ti[x]) - robot_orientation-z_il
     #Jacobian A, B
-    A_21_22 = -R_i.T
+    #Checked in maple ! nice
+    A_21_22= -R_i.T
     A_23 = np.dot(dR_i.T, x_l-t_i)
     A_ij = np.hstack((A_21_22, A_23))
 
     B_ij = R_i.T
-
+    
+    #print(f"lin error landmark\n {e_full}\n")
     return e_full, A_ij, B_ij
 
 def pose_gps_constraints(x, g, z):
@@ -276,5 +324,17 @@ def pose_gps_constraints(x, g, z):
     A_ij = np.hstack((A_21_22, A_23))
 
     B_ij = R_i.T
+    #print(f"lin error gps\n {e_full}\n")
 
     return e_full, A_ij, B_ij
+
+def wrap2pi(angle):
+
+    if angle > np.pi:
+        angle = angle-2*np.pi
+        
+
+    elif angle < -np.pi:
+        angle = angle + 2*np.pi
+    
+    return angle

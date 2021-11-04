@@ -24,17 +24,17 @@ def graph_plot(graph, animate = False, poseEdgesPlot = True, landmarkEdgesPlot =
     #plot poses and landmarks if exits
     if len(poses) > 0:
         poses = np.stack(poses, axis=0) # axis = 0 turns into integers/slices and not tuple
-        plt.plot(poses[:,0], poses[:,1], 'bo')
-        plt.quiver(poses[:,0], poses[:,1], np.cos(poses[:,2]),np.sin(poses[:,2]), angles= 'xy')
+        plt.plot(poses[:,0], poses[:,1], 'b.')
+        #plt.quiver(poses[:,0], poses[:,1], np.cos(poses[:,2]),np.sin(poses[:,2]), angles= 'xy')
     
     
     if len(landmarks) > 0:
         landmarks = np.stack(landmarks, axis=0)
-        plt.plot(landmarks[:,0], landmarks[:,1], 'r*')
+        plt.plot(landmarks[:,0], landmarks[:,1], 'r1')
     
     if len(gps) > 0:
         gps = np.stack(gps, axis=0)
-        plt.plot(gps[:,0], gps[:,1], 'gh')
+        plt.plot(gps[:,0], gps[:,1], "gx")
 
         
     poseEdgesFrom = []
@@ -158,10 +158,10 @@ def plot_ground_together_noise(ground_graph, noise_graph):
 
 def plot_errors(pose_error,land_error,gps_error):
 
-    e_pose = np.vstack((pose_error))
-    e_land = np.vstack((land_error))
-    e_gps = np.vstack((gps_error))
-    print(f"e_pose : {e_pose} , e_land: {e_land}")
+    e_pose = np.abs(np.vstack((pose_error)))
+    e_land = np.abs(np.vstack((land_error)))
+    e_gps = np.abs(np.vstack((gps_error)))
+   # print(f"e_pose : {e_pose} , e_land: {e_land}")
     fig1, axs1 = plt.subplots(1,3)
     axs1[0].plot(e_pose[:,0])
     axs1[1].plot(e_pose[:,1])
