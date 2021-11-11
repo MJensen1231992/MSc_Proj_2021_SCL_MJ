@@ -1,11 +1,14 @@
+from matplotlib import markers
 import numpy as np
 import matplotlib.pyplot as plt
 from math import atan2, pi, cos, sin, sqrt, ceil
+from sklearn.metrics import mean_squared_error
 import random
 import warnings
 
 warnings.filterwarnings("ignore", category=RuntimeWarning) 
 
+# Local imports
 from lib.helpers import *
 
 def do_rom_splines(route):
@@ -229,10 +232,13 @@ def addNoise(x, y, th, std_x, std_y, std_th):
     return xN, yN, tN
 
 def calc_bearing(x1, y1, x2, y2):
-    return atan2((y2 - y1), (x2 - x1))
+    
+    angle = atan2((y2 - y1), (x2 - x1))
+
+    return angle
 
 def calculate_angles(route):
-    # Calculating angle between two points
+    # Calculating angle between two points of a route
     angles = [atan2((y2 - y1), (x2 - x1)) for (x1, y1), (x2, y2) in zip(route[:-1], route[1:])]
 
     return angles
@@ -243,3 +249,79 @@ def RMSE(predicted, actual):
 def MAE(predicted, actual):
     return abs(np.subtract(actual, predicted)).mean()
 
+def ATE(predicted, actual):
+
+    pred1 = []
+    act1 = []
+    steps = []
+    xsteps = []
+    ysteps = []
+
+    for i in range(len(actual[0][:])-1):
+
+        pred1.append(sqrt((predicted[0][i+1] - predicted[0][i])**2 + (predicted[1][i+1] - predicted[1][i])**2))
+        act1.append(sqrt((actual[0][i+1] - actual[0][i])**2 + (actual[1][i+1] - actual[1][i])**2))
+        steps.append((sqrt((predicted[0][i+1] - predicted[0][i])**2 + (predicted[1][i+1] - predicted[1][i])**2)) - (sqrt((actual[0][i+1] - actual[0][i])**2 + (actual[1][i+1] - actual[1][i])**2)))
+        xsteps.append((sqrt((predicted[0][i+1] - predicted[0][i])**2) - (sqrt((actual[0][i+1] - actual[0][i])**2))))
+        ysteps.append((sqrt((predicted[1][i+1] - predicted[1][i])**2) - (sqrt((actual[1][i+1] - actual[1][i])**2))))
+        
+
+    plt.plot(steps, label='total')
+    plt.plot(xsteps, label='xtotal')
+    plt.plot(ysteps, label='ytotal')
+    plt.legend()
+
+    return (mean_squared_error(act1,pred1)) 
+    
+
+def ALE(predicted, actual):
+
+    pred_pose = []
+    act_pose = []
+
+    for landmark in predicted.values():
+        for pose in landmark:
+            pred_pose.append(pose)
+    
+    for landmark in actual.values():
+        for pose in landmark:
+            act_pose.append(pose)
+
+    return (mean_squared_error(act_pose,pred_pose)) 
+
+def _ready_data(data):
+    data = np.vstack(data)
+
+    datax = data[:,0]
+    datay = data[:,1]
+
+    dx = np.vstack([datax[0::2], datax[1::2]])
+    dy = np.vstack([datay[0::2], datay[1::2]])
+
+    d_dx = abs(dx[0] - dx[1])
+    d_dy = abs(dy[0] - dy[1])
+
+    return d_dx, d_dy
+
+def plot_outliers_vs_normal(pose_pose_outlier, pose_landmark_outlier, pose_pose_inliers, pose_landmark_inliers):
+
+    pp_dx, pp_dy = _ready_data(pose_pose_inliers)
+    pl_dx, pl_dy = _ready_data(pose_landmark_inliers)
+
+    ppo_dx, ppo_dy = _ready_data(pose_pose_outlier)
+    plo_dx, plo_dy = _ready_data(pose_landmark_outlier)
+
+    plt.figure()
+    plt.scatter(pp_dx, pp_dy, marker='^', color='magenta', label='pose-pose inliers')
+    plt.scatter(ppo_dx, ppo_dy, marker='x', color='red', label='pose-pose outliers')
+    plt.legend()
+    
+    plt.figure()
+    plt.scatter(pl_dx, pl_dy, marker='<', color='lime', label='pose-landmark inliers')
+    plt.scatter(plo_dx, plo_dy, marker='o', color='blue', label='pose-landmark outliers')
+    plt.legend()
+    plt.show()
+
+
+
+    

@@ -101,7 +101,6 @@ class read_csv():
             points = np.stack((x,y), axis=-1)
             self.polygon_final = sg.Polygon(np.squeeze(points))
 
-            # Debug
             area = self.polygon_final.area
 
             poly_area.append(area)

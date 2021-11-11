@@ -14,10 +14,14 @@ landmarksFile = './g2o_generator/GIS_Extraction/landmarks/landmarks_w_types.json
 route_name = 'brbr'
 
 # Variables
-LM_RANGE = 10
-ODO_RANGE = 1
+LM_RANGE = 20
+ODO_RANGE = 2
 set_xlim = [574714, 575168]
 set_ylim = [6222368, 6222683]
+
+# set_xlim = [57500, 575168]
+# set_ylim = [6222468, 6222683]
+
 
 # Making robot path
 show = cw.world(filenamePoints, filenamePoly, landmarksFile, route_name=route_name, save_path=True,\
