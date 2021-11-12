@@ -1,5 +1,4 @@
 import numpy as np
-from numpy.linalg import inv
 
 def get_poses_landmarks(graph):
 
@@ -76,8 +75,84 @@ def vision_length_check(graph):
         if edge.Type == 'L':
             x = (np.abs(edge.poseMeasurement[0]))
             y = (np.abs(edge.poseMeasurement[1]))
-
-            
             ks.append(np.sqrt([x**2+y**2]))
-    #plot_ground_together_noise(g_graph,n_graph)
     print(max(ks))
+
+def wrap2pi(angle):
+
+    if angle > np.pi:
+        angle = angle-2*np.pi
+        
+    elif angle < -np.pi:
+        angle = angle + 2*np.pi
+    
+    return angle
+
+def RMSE(predicted, actual):
+    return np.square(np.subtract(actual,predicted)).mean() 
+
+
+def calc_gradient_hessian(A,B,information,error,type: str):
+                
+    if type == 'P':
+        b_i = np.dot(np.dot(A.T,information), error).reshape(3,1)
+        b_j = np.dot(np.dot(B.T,information), error).reshape(3,1)
+    elif type =='LB': 
+        b_i = np.dot(np.dot(A.T,information), error).reshape(3,1)
+        b_j = np.dot(np.dot(B.T,information), error).reshape(3,1)
+    elif type =='B':
+        pass
+    else:
+        b_i = np.dot(np.dot(A.T,information), error).reshape(3,1)
+        b_j = np.dot(np.dot(B.T,information), error).reshape(2,1)
+
+    #print(f"A:\n{A}\nB{B}\nInformation{information}")
+    H_ii = np.dot(np.dot(A.T,information), A) 
+    H_ij = np.dot(np.dot(A.T,information), B) 
+    H_ji = np.dot(np.dot(B.T,information), A) 
+    H_jj = np.dot(np.dot(B.T,information), B)  
+    #print(f"H_ii\n{H_ii}\nH_ij\n{H_ij}\nH_jj{H_jj}\n")
+    return b_i, b_j, H_ii, H_ij, H_ji, H_jj
+
+def build_gradient_hessian(b_i, b_j, H_ii, H_ij, H_ji, H_jj,H,b,fromIdx,toIdx, type: str):
+
+    if type=='P':
+        H[fromIdx:fromIdx+3, fromIdx:fromIdx+3] += H_ii
+        H[fromIdx:fromIdx+3, toIdx:toIdx+3] += H_ij
+        H[toIdx:toIdx+3, fromIdx:fromIdx+3] += H_ji
+        H[toIdx:toIdx+3, toIdx:toIdx+3] += H_jj
+
+        b[fromIdx:fromIdx+3] += b_i
+        b[toIdx:toIdx+3] += b_j
+
+    elif type =='LB':
+        H[fromIdx:fromIdx+3, fromIdx:fromIdx+3] += H_ii
+        H[fromIdx:fromIdx+3, toIdx:toIdx+3] += H_ij
+        H[toIdx:toIdx+3, fromIdx:fromIdx+3] += H_ji
+        H[toIdx:toIdx+3, toIdx:toIdx+3] += H_jj
+
+        b[fromIdx:fromIdx+3] += b_i
+        b[toIdx:toIdx+3] += b_j
+
+    else:
+        H[fromIdx:fromIdx+3, fromIdx:fromIdx+3] += H_ii
+        H[fromIdx:fromIdx+3, toIdx:toIdx+2] += H_ij
+        H[toIdx:toIdx+2, fromIdx:fromIdx+3] += H_ji
+        H[toIdx:toIdx+2, toIdx:toIdx+2] += H_jj
+
+        b[fromIdx:fromIdx+3] += b_i
+        b[toIdx:toIdx+2] += b_j
+
+    #print(f"H:\n{np.linalg.norm(H)}\nb:\n{np.linalg.norm(b)}\n")
+    return H, b
+
+def printPrincipalDiagonal(mat, n):
+    print("Principal Diagonal: ", end = "")
+ 
+    for i in range(n):
+        for j in range(n):
+ 
+            # Condition for principal diagonal
+            if (i == j):
+                print(mat[i][j], end = ", ")
+    print()

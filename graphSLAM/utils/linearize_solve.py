@@ -1,16 +1,9 @@
-#from os import read, readlink
-import warnings
 import numpy as np
-from numpy.linalg import inv
-from collections import namedtuple
-import matplotlib.pyplot as plt
-#import scipy 
 from scipy.sparse import csr_matrix
 from scipy.sparse.linalg import spsolve
 from run_slam import *
 from helper import *
 from error import *
-#from scipy.optimize import least_squares
 
 def information_matrix(graph):
 
@@ -25,7 +18,7 @@ def information_matrix(graph):
     return H,b 
 
 def linearize_solve(graph, lambdaH: float = 1.0, needToAddPrior=True, dcs=True):
-
+    print(needToAddPrior)
     phi = 1
     H, b = information_matrix(graph)
     
@@ -41,106 +34,75 @@ def linearize_solve(graph, lambdaH: float = 1.0, needToAddPrior=True, dcs=True):
             z_ij = edge.poseMeasurement
             omega_ij = edge.information
 
-            #print(f"pre omega:\n{omega_ij}")
-
             error, A, B = pose_pose_constraints(x_i, x_j, z_ij)
             pose_error = iterative_global_poseerror(x_i,x_j,z_ij)
-            
-            #print(f"error:\n{error}\n, poseerror:\n{pose_error}\n pose_A_jac:\n{A}\n pose_B_jac:\n{B}\n")
-            
+            #if -np.pi > error[2] > np.pi:
+            #print(f"pose error:\n{error}\nIterative error:\n{pose_error}\n pose A:\n{A}\n pose B:\n{B}\n")
 
             if dcs:
-                s_ij = dynamic_covariance_scaling(pose_error, phi)
+                s_ij = dynamic_covariance_scaling(error, phi)
                 omega_ij = (s_ij**2)*omega_ij
-                #print(f"pose_error iter:\n{pose_error}\n")#s_ij : {s_ij}\n post omega:\n{omega_ij}\n 
-                
 
-            #print(f"iterative pose :{pose_error}")
+            b_i, b_j, H_ii, H_ij, H_ji, H_jj = calc_gradient_hessian(A,B,omega_ij, error, type = 'P')
 
-            b_i = np.dot(np.dot(A.T,omega_ij), error).reshape(3,1)
-            b_j = np.dot(np.dot(B.T,omega_ij), error).reshape(3,1)
-            H_ii = np.dot(np.dot(A.T,omega_ij), A) 
-            H_ij = np.dot(np.dot(A.T,omega_ij), B) 
-            H_ji = np.dot(np.dot(B.T,omega_ij), A) 
-            H_jj = np.dot(np.dot(B.T,omega_ij), B) 
-
-            
-            if needToAddPrior:
+            if needToAddPrior: #May need to add prior to fix initial location!
                 H[fromIdx:fromIdx + 3, fromIdx:fromIdx + 3] = H[fromIdx:fromIdx + 3, fromIdx:fromIdx + 3] + 1000 * np.eye(3)
-                
                 needToAddPrior = False
 
-            #adding them to H and b in respective places
-            H[fromIdx:fromIdx+3, fromIdx:fromIdx+3] += H_ii
-            H[fromIdx:fromIdx+3, toIdx:toIdx+3] += H_ij
-            H[toIdx:toIdx+3, fromIdx:fromIdx+3] += H_ji
-            H[toIdx:toIdx+3, toIdx:toIdx+3] += H_jj
-
-            b[fromIdx:fromIdx+3] += b_i
-            b[toIdx:toIdx+3] += b_j
+            #Adding them to H and b in respective places
+            H, b = build_gradient_hessian(b_i, b_j, H_ii, H_ij, H_ji, H_jj, H, b, fromIdx, toIdx, type='P')
             
-            #May need to add prior to fix initial location!
-            
-
+        
         elif edge.Type == 'L':
 
             fromIdx = graph.lut[edge.nodeFrom]
             toIdx = graph.lut[edge.nodeTo]
+            
             #x_i is robot pose
             x_i = graph.x[fromIdx:fromIdx+3]
             z_ij = edge.poseMeasurement
             omega_ij = edge.information
 
+            
             if graph.withoutBearing: 
                 #l is landmark pose
-                l = graph.x[toIdx:toIdx+2]
+                x_j = graph.x[toIdx:toIdx+2]
 
-                error , A, B = pose_landmark_constraints(x_i, l, z_ij)
-                land_error = iterative_global_landerror(x_i,l,z_ij)
-                #print(f"error {error}, poseerror{land_error}")
-                
+                error , A, B = pose_landmark_constraints(x_i, x_j, z_ij)
+                land_error = iterative_global_landerror(x_i,x_j,z_ij)
+                #print(f"error:\n{error}\n land iterative error:\n{land_error}")
+                #print(f"land A:\n{A}\nvec of A:\n{trans2vec(A)}\nland B:\n{B}\n")
+
                 if dcs:
-                   s_ij = dynamic_covariance_scaling(land_error, phi)
+                   s_ij = dynamic_covariance_scaling(error, phi)
                    omega_ij = (s_ij**2)*omega_ij
-                   #print(f"land_error iter:\n{land_error}\n")#s_ij : {s_ij}\n post omega:\n{omega_ij}\n 
 
-                b_i = np.dot(np.dot(A.T,omega_ij), error).reshape(3,1)
-                b_j = np.dot(np.dot(B.T,omega_ij), error).reshape(2,1)
-                H_ii = np.dot(np.dot(A.T,omega_ij), A) 
-                H_ij = np.dot(np.dot(A.T,omega_ij), B) 
-                H_ji = np.dot(np.dot(B.T,omega_ij), A)  
-                H_jj = np.dot(np.dot(B.T,omega_ij), B) 
+                b_i, b_j, H_ii, H_ij, H_ji, H_jj = calc_gradient_hessian(A, B, omega_ij, error, type = 'L')
 
                 #adding them to H and b
+                H, b = build_gradient_hessian(b_i, b_j, H_ii, H_ij, H_ji, H_jj, H, b, fromIdx, toIdx,type='L')
+                #print(f"H:\n{H}\ngradient:\n{b}")
 
-                H[fromIdx:fromIdx+3, fromIdx:fromIdx+3] += H_ii
-                H[fromIdx:fromIdx+3, toIdx:toIdx+2] += H_ij
-                H[toIdx:toIdx+2, fromIdx:fromIdx+3] += H_ji
-                H[toIdx:toIdx+2, toIdx:toIdx+2] += H_jj
+            else: 
+                x_j = graph.x[toIdx:toIdx+2]
+                #print(f"x_j landmark bearing{x_j}")
+                error , A, B = pose_landmark_bearing_constraints(x_i, x_j, z_ij)
+                land_error_bearing = iterative_global_landmark_bearing_error(x_i,x_j,z_ij)
+                #if -np.pi > error[2] > np.pi:
+               # print(f"land iterative error:\n{land_error_bearing}\nlandmark bearing error:\n{error}\n")
+                #print(f"Bearing A:\n{A}\nvec of bearing A:\n{trans2vec(A)}\n Bearing B:\n{B}\n")
 
-                b[fromIdx:fromIdx+3] += b_i
-                b[toIdx:toIdx+2] += b_j
-            
-            else:
-                l = graph.x[toIdx:toIdx+2]
-                error, A, B = pose_landmark_constraints_bearing(x_l, l, z_ij)
-                b_i = np.dot(np.dot(A.T,omega_ij), error).reshape(3,1)
-                b_j = np.dot(np.dot(B.T,omega_ij), error).reshape(2,1)
-                H_ii = np.dot(np.dot(A.T,omega_ij), A) 
-                H_ij = np.dot(np.dot(A.T,omega_ij), B) 
-                H_ji = np.dot(np.dot(B.T,omega_ij), A)  
-                H_jj = np.dot(np.dot(B.T,omega_ij), B) 
+                if dcs:
+                   s_ij = dynamic_covariance_scaling(error, phi)
+                   omega_ij = (s_ij**2)*omega_ij
+
+                b_i, b_j, H_ii, H_ij, H_ji, H_jj = calc_gradient_hessian(A, B, omega_ij, error, type = 'LB')
 
                 #adding them to H and b
-
-                H[fromIdx:fromIdx+3, fromIdx:fromIdx+3] += H_ii
-                H[fromIdx:fromIdx+3, toIdx:toIdx+3] += H_ij
-                H[toIdx:toIdx+3, fromIdx:fromIdx+3] += H_ji
-                H[toIdx:toIdx+3, toIdx:toIdx+3] += H_jj
-
-                b[fromIdx:fromIdx+3] += b_i
-                b[toIdx:toIdx+3] += b_j
-
+                H, b = build_gradient_hessian(b_i, b_j, H_ii, H_ij, H_ji, H_jj, H, b, fromIdx, toIdx,type='LB')
+                #print(f"H:\n{H}\ngradient:\n{b}")
+                #print(f"norm H:\n{np.linalg.norm(H)}\ngradient:\n{np.linalg.norm(b)}")
+                
         elif edge.Type == 'G':
             
             fromIdx = graph.lut[edge.nodeFrom]
@@ -150,36 +112,29 @@ def linearize_solve(graph, lambdaH: float = 1.0, needToAddPrior=True, dcs=True):
             z_ij = edge.poseMeasurement
             omega_ij = edge.information
 
-            
-
-            #print(f"l from linearize{g}")
             error , A, B = pose_gps_constraints(x_g, g, z_ij)
             #gps_error = iterative_global_landerror(x_g, g, z_ij)
-            #if dcs:
-            #    s_ij = dynamic_covariance_scaling(gps_error, phi)
-            #    omega_ij = (s_ij**2)*omega_ij
-            b_i = np.dot(np.dot(A.T,omega_ij), error).reshape(3,1)
-            b_j = np.dot(np.dot(B.T,omega_ij), error).reshape(2,1)
-            H_ii = np.dot(np.dot(A.T,omega_ij), A) 
-            H_ij = np.dot(np.dot(A.T,omega_ij), B) 
-            H_ji = np.dot(np.dot(B.T,omega_ij), A)  
-            H_jj = np.dot(np.dot(B.T,omega_ij), B) 
+               
+            #print(f"gps error:\n{error}\n")
+
+            if dcs:
+               s_ij = dynamic_covariance_scaling(error, phi)
+               omega_ij = (s_ij**2)*omega_ij
+
+            b_i, b_j, H_ii, H_ij, H_ji, H_jj = calc_gradient_hessian(A,B,omega_ij, error, type = 'G')
 
             #adding them to H and b
-
-            H[fromIdx:fromIdx+3, fromIdx:fromIdx+3] += H_ii
-            H[fromIdx:fromIdx+3, toIdx:toIdx+2] += H_ij
-            H[toIdx:toIdx+2, fromIdx:fromIdx+3] += H_ji
-            H[toIdx:toIdx+2, toIdx:toIdx+2] += H_jj
-
-            b[fromIdx:fromIdx+3] += b_i
-            b[toIdx:toIdx+2] += b_j
+            H, b = build_gradient_hessian(b_i, b_j, H_ii, H_ij, H_ji, H_jj,H,b, fromIdx,toIdx, type='G')
     
     
-    #H = (H+lambdaH*np.eye(H.shape[0]))
-    #print(f"H is:\n {H}\n")
-    H_sparse = csr_matrix(H)
-
+    Hs = (H+lambdaH*np.eye(H.shape[0]))
+    #print(f"lambdaH:\n{lambdaH}")
+    #print(f"Hdet:\n{np.linalg.slogdet(H)}\n")
+    #print(f"Hsdet:\n{np.linalg.slogdet(Hs)}\n")
+    H_sparse = csr_matrix(Hs)
+    #print(f"\nH sum:\n{np.sum(abs(Hs))-np.sum(abs(H))}\n equal to ?:\nlambdaH:\n{lambdaH}\n")
+    #Hdiag = printPrincipalDiagonal(H,H.shape[0])
+    #Hsdiag = printPrincipalDiagonal(Hs,Hs.shape[0])
     sparse_dxstar = spsolve(H_sparse,-b)
     dxstar_squeeze = sparse_dxstar.squeeze()
     
@@ -208,21 +163,17 @@ def pose_pose_constraints(xi,xj,zij):
 
     #from appendix tutorial on graphbased slam.
     #Error functions from linearization
-    e_xy = np.dot(np.dot(R_ij.T, R_i.T), t_j-t_i)-np.dot(R_ij.T, t_ij)  
-    #e_xy_test = R_ij.T@(R_i.T@(t_j-t_i)-t_ij)
-    e_ang = theta_j - theta_i - theta_ij 
-    e_ang_gold = theta_ij - (theta_j-theta_i)
-    e_ang_gold_norm = wrap2pi(wrap2pi(theta_j-theta_i)-theta_ij)
-    #print(f"e_ang:\n{e_ang}\n e_ang_gold:\n{e_ang_gold}\n e_ang_gold_norm:\n{e_ang_gold_norm}\n")
-    e_full = np.vstack((e_xy,e_ang_gold_norm))
+    e_xy = np.dot(np.dot(R_ij.T, R_i.T), t_j-t_i)-np.dot(R_ij.T, t_ij)
+    e_ang = wrap2pi(wrap2pi(theta_j-theta_i)-theta_ij)
 
-   
+    e_full = np.vstack((e_xy,e_ang))
 
     #Jacobian of e_ij wrt. x_i
     A_11 = np.dot(-R_ij.T,R_i.T)
     A_12 = np.dot(np.dot(R_ij.T, dR_i.T), t_j-t_i)
     A_21_22 = np.array([0,0,-1])
     A_ij = np.vstack((np.hstack((A_11,A_12)),A_21_22))
+
 
     #Jacobian of e_ij wrt. x_j
     B_11 = np.dot(R_ij.T,R_i.T)
@@ -233,48 +184,33 @@ def pose_pose_constraints(xi,xj,zij):
     
     return e_full, A_ij, B_ij
 
+def pose_landmark_bearing_constraints(x,l,z):
     
-def pose_landmark_constraints_bearing(x,l,z):
-    #Linearization of pose pose constraints
-
-    #angles
+    angle_error = iterative_global_landmark_bearing_error(x,l,z)
+    #print(f"angle error bearing:\n{angle_error}\n")
+    t_i = x[:2].reshape(2,1)#translation part robot translation
+    x_j = l.reshape(2,1)#landmark pose
+    z_il = z[:2].reshape(2,1) 
     theta_i = x[2]
-    theta_j = l[2]
-    theta_ij = z[2]
 
-    #translation part
-    t_i = x[:2].reshape(2,1)
-    t_j = l[:2].reshape(2,1)
-    t_ij = z[:2].reshape(2,1)
-
-    #rotational part
-    R_i = vec2trans(x)[:2, :2]
-    R_ij = vec2trans(z)[:2, :2]
-
-
+    R_i = vec2trans(x)[:2, :2] # rotational part of robot pose
     dR_i = np.array([[-np.sin(theta_i), -np.cos(theta_i)],
-              [np.cos(theta_i), -np.sin(theta_i)]])
+                    [np.cos(theta_i), -np.sin(theta_i)]])
 
-    #from appendix tutorial on graphbased slam.
-    e_xy = np.dot(np.dot(R_ij.T, R_i.T), t_j-t_i)-np.dot(R_ij.T, t_ij)  
-    e_ang = theta_j - theta_i - theta_ij
-   
+    e_xy = np.dot(R_i.T, x_j-t_i) - z_il #landmarkslam freiburg pdf
+    e_full = np.vstack((e_xy,angle_error))
 
-    
+    A_11 = -R_i.T
+    A_12 = np.dot(dR_i.T, x_j-t_i)
+    A_21_22 = np.array([0,0,1])
+    A_ij = np.vstack((np.hstack((A_11, A_12)),A_21_22))
 
-    e_full = np.vstack((e_xy,e_ang))
-
-    A_11 = np.dot(-R_ij.T,R_i.T)
-    A_12 = np.dot(np.dot(R_ij.T, dR_i.T), t_j-t_i)
-    A_21_22 = np.array([0,0,-1])
-    A_ij = np.vstack((np.hstack((A_11,A_12)),A_21_22))
-
-
-    B_11 = np.dot(R_ij.T,R_i.T)
+    B_11 = R_i.T
     B_12 = np.zeros((2,1),dtype=np.float64)
     B_21_22 = np.array([0,0,1])
     B_ij = np.vstack((np.hstack((B_11,B_12)),B_21_22))
-    
+
+
     return e_full, A_ij, B_ij
 
 def pose_landmark_constraints(x, l, z):
@@ -282,14 +218,14 @@ def pose_landmark_constraints(x, l, z):
     t_i = x[:2].reshape(2,1)#translation part robot translation
     x_l = l.reshape(2,1)#landmark pose
     z_il = z.reshape(2,1) 
-
     theta_i = x[2]
 
-    R_i = vec2trans(x)[:2, :2] # rotational part
+    R_i = vec2trans(x)[:2, :2] # rotational part of robot pose
     dR_i = np.array([[-np.sin(theta_i), -np.cos(theta_i)],
                     [np.cos(theta_i), -np.sin(theta_i)]])
 
     e_full = np.dot(R_i.T, x_l-t_i) - z_il #landmarkslam freiburg pdf
+    
     #bearing only
     #e_bearing = atan2((x_l[x]-ti[y],x_l[x]-ti[x]) - robot_orientation-z_il
     #Jacobian A, B
@@ -299,8 +235,7 @@ def pose_landmark_constraints(x, l, z):
     A_ij = np.hstack((A_21_22, A_23))
 
     B_ij = R_i.T
-    
-    #print(f"lin error landmark\n {e_full}\n")
+
     return e_full, A_ij, B_ij
 
 def pose_gps_constraints(x, g, z):
@@ -314,27 +249,14 @@ def pose_gps_constraints(x, g, z):
     dR_i = np.array([[-np.sin(theta_i), -np.cos(theta_i)],
                      [np.cos(theta_i), -np.sin(theta_i)]])
 
-    e_full = np.dot(R_i.T, x_g-t_i) - z_il #landmarkslam freiburg pdf
-    #bearing only
-    #e_bearing = atan2((x_l[x]-ti[y],x_l[x]-ti[x]) - robot_orientation-z_il
+    e_full = np.dot(R_i.T, x_g-t_i) - z_il 
+
     #Jacobian A, B
-    
     A_21_22 = -R_i.T
     A_23 = np.dot(dR_i.T, x_g-t_i)
     A_ij = np.hstack((A_21_22, A_23))
 
     B_ij = R_i.T
-    #print(f"lin error gps\n {e_full}\n")
 
     return e_full, A_ij, B_ij
 
-def wrap2pi(angle):
-
-    if angle > np.pi:
-        angle = angle-2*np.pi
-        
-
-    elif angle < -np.pi:
-        angle = angle + 2*np.pi
-    
-    return angle
