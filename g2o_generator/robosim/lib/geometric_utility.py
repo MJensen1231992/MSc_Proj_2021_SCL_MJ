@@ -1,24 +1,16 @@
-import numpy as np
-import shapely.geometry
-import shapely.geometry as sg
-import descartes
-import matplotlib.pyplot as plt
 
-from utm.conversion import from_latlon
-
-
-def poly_intersection(robot_pose, landmark_xy, polygon):
-
-    line = shapely.geometry.LineString([[robot_pose[0], robot_pose[1]], [landmark_xy[0], landmark_xy[1]]])
+def polygon_stacker(polygon):
 
     polygons = (list(polygon.geoms))
 
+    poly_stack = []
 
     for i in range(len(polygons)):
         
-        print(polygons[i])
-        free = line.intersects(polygons[i])
+        poly = polygons[i]
+        poly_stack.append(poly)
         
+
         # fig = plt.figure()
         # ax = fig.add_subplot(111)
         # ax.plot(*np.array(line).T, color='green', linewidth=3, solid_capstyle='round')
@@ -26,10 +18,17 @@ def poly_intersection(robot_pose, landmark_xy, polygon):
         # ax.axis('equal')
         # plt.show()
 
-        if free:
-            continue
-        else:
-            # print("Polygon between robot and landmark!")
-            return False
+    return poly_stack
+
+def p_intersection(line, polygons):
+
+    poly_stack = polygon_stacker(polygons)
+    
+    for p in poly_stack:
         
-    return True        
+        if line.intersects(p.boundary):
+            return False
+        else:
+            continue
+
+    return True

@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import random
 import time
+import shapely.geometry
 from numpy.lib.function_base import _insert_dispatcher, insert
 import utm
 from math import *
@@ -11,7 +12,7 @@ sys.path.append('g2o_generator/GIS_Extraction')
 
 # local import
 from lib.utility import *
-from lib.geometric_utility import poly_intersection
+from lib.geometric_utility import p_intersection
 import csv_reader as GIS
 
 class g2o:
@@ -77,7 +78,7 @@ class g2o:
         self.aarhus = GIS.read_csv(filenamePoints, filenamePoly)
         _, self.rowPoly = self.aarhus.read()
         self.cascaded_poly = self.aarhus.squeeze_polygons(self.rowPoly)
-        
+
         loaded_landmarks = load_from_json(filelandmarks)
         self.gt_landmarks = loaded_landmarks
         self.landmarks = add_landmark_noise(loaded_landmarks, std_lm_x, std_lm_y)
@@ -385,7 +386,10 @@ class g2o:
                     other_pose = np.array([[pos[0]], [pos[1]], [noisy_bearing]])
                     lc_constraint_lm = self.generate_lc_constraint(curr_pose, other_pose)
                    
-                    if -pi/2 <= lc_constraint_lm[2,0] <= pi/2: #and poly_intersection((x[pose_id], y[pose_id]), (pos[0], pos[1]), self.cascaded_poly):
+                    line = shapely.geometry.LineString([[x[pose_id], y[pose_id]], [pos[0], pos[1]]])
+
+                    # Robot camera FOV of ±pi/2 AND calculating vision intersection with polygons
+                    if -pi/2 <= lc_constraint_lm[2,0] <= pi/2 and p_intersection(line, self.cascaded_poly):
 
                         # Saving pose_landmark for visualization
                         self.pose_landmark.append([points[pose_id][0:2], pos])
