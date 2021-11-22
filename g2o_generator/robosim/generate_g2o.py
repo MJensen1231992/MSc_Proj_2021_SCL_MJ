@@ -25,6 +25,10 @@ class g2o:
         self.lm_lut = {}
         self.landmark_arrow = []
 
+        # This will only get the bearing to landmarks and not 
+        # initialize the g2o file with landmark locations
+        self.bearing_only = True
+
         self.lm_thresh = 3 
         self.lm_lc_prob = 0.93
         self.GNSS_freq = 5
@@ -41,7 +45,7 @@ class g2o:
                              "none": -1}
 
         std_gnss_x = 0.7; std_gnss_y = 0.7
-        std_odo_x = 0.2; std_odo_y = 0.25; std_odo_th = deg2rad(2)
+        std_odo_x = 0.15; std_odo_y = 0.35; std_odo_th = deg2rad(2)
         std_lm_x = 0.5; std_lm_y = 0.5; std_lm_th = deg2rad(2)
 
         # Information matrices: 
@@ -91,8 +95,7 @@ class g2o:
         self.do_loop_closure(self.x, self.y, self.th, self.xN, self.yN, self.thN, g2oW, corruption_type)
        
         lm_x, lm_y, lm_th = zip(*self.landmark_arrow)
-          
-
+        
         if plot:
             
             # print("RMSE: {:.2f} \t|\t MAE: {:.2f} \t|\t ATE: {:.6f} \t|\t ALE {:.2f}".format(\
@@ -107,6 +110,7 @@ class g2o:
                 self.plot_constraints()
 
             if plot_outliers:
+                plt.plot(self.xN, self.yN, label='Noise route')
                 self.plot_outliers()
                 plot_outliers_vs_normal(self.pose_pose_outliers, self.pose_landmark_outlier, self.pose_pose, self.pose_landmark)
 
@@ -144,17 +148,29 @@ class g2o:
             for key, landmark in landmarks.items():
                 for pos in landmark:
                     d_landmark = np.linalg.norm(np.array(points[pose_id]) - np.array(pos, dtype=np.float64))
-                    if np.greater(self.lm_lc_range, d_landmark):
-                        if pos in lm_hist:
-                            continue
-                        else:
 
-                            l = '{} {} {} {}'.format("VERTEX_XY", self.n_landmarks, pos[0]-self.xscale, pos[1]-self.yscale)
-                            g2oW.write(l)
-                            g2oW.write("\n")
-                            self.n_landmarks += 1
-                            lm_hist.append(pos)
-                            self.lm_lut[self.n_landmarks, key] = pos
+                    if np.greater(self.lm_lc_range, d_landmark):
+                        
+                        # Duplication of code for building constraints
+                        bearing = calc_bearing(x[pose_id], y[pose_id], pos[0], pos[1])
+
+                        curr_pose = np.array([[x[pose_id]], [y[pose_id]], [theta[pose_id]]])
+                        other_pose = np.array([[pos[0]], [pos[1]], [bearing]])
+
+                        lc_constraint_lm = self.generate_lc_constraint(curr_pose, other_pose)
+                        line = shapely.geometry.LineString([[x[pose_id], y[pose_id]], [pos[0], pos[1]]])
+
+                        if -pi/2 <= lc_constraint_lm[2,0] <= pi/2 and p_intersection(line, self.cascaded_poly):
+
+                            if pos in lm_hist:
+                                continue
+                            else:
+                                l = '{} {} {} {}'.format("VERTEX_XY", self.n_landmarks, pos[0]-self.xscale, pos[1]-self.yscale)
+                                g2oW.write(l)
+                                g2oW.write("\n")
+                                self.n_landmarks += 1
+                                lm_hist.append(pos)
+                                self.lm_lut[self.n_landmarks, key] = pos
 
 
         # GPS id and position (in UTM32)
@@ -232,6 +248,7 @@ class g2o:
     def ground_truth(self):
         g2oWG = open('g2o_generator/robosim/data/g2o/ground_truth_'+self.time_stamp+'.g2o', 'w')
         n_landmarks = 0
+        n_gps = 0
         points =  [[x, y] for x, y in zip(self.x, self.y)]
 
         # If a landmark has been seen before, no not append. Also saving landmarks in a look up table
@@ -245,7 +262,7 @@ class g2o:
                             continue
                         else:
 
-                            l = '{} {} {} {}'.format("VERTEX_XY", n_landmarks, pos[0]-self.x[0], pos[1]-self.y[0])
+                            l = '{} {} {} {}'.format("VERTEX_XY", str(n_landmarks), pos[0]-self.x[0], pos[1]-self.y[0])
                             g2oWG.write(l)
                             g2oWG.write("\n")
                             n_landmarks += 1
@@ -253,12 +270,14 @@ class g2o:
 
         # GPS id and position (in UTM32)
         for idx, (gt_x_gnss, gt_y_gnss) in enumerate(zip(self.gt_x_gnss, self.gt_y_gnss)):
-            l = '{} {} {} {}'.format("VERTEX_GPS", idx+n_landmarks, gt_x_gnss-self.x[0], gt_y_gnss-self.y[0])
+            l = '{} {} {} {}'.format("VERTEX_GPS", str(idx+n_landmarks), gt_x_gnss-self.x[0], gt_y_gnss-self.y[0])
+            n_gps += 1
+
             g2oWG.write(l)
             g2oWG.write("\n")
 
         for i in range(len(self.x)):
-            l = '{} {} {} {} {}'.format("VERTEX_SE2", str(i), self.x[i]-self.x[0], self.y[i]-self.y[0], self.th[i])
+            l = '{} {} {} {} {}'.format("VERTEX_SE2", str(i+n_landmarks+n_gps), self.x[i]-self.x[0], self.y[i]-self.y[0], self.th[i])
 
             g2oWG.write(l)
             g2oWG.write("\n")
@@ -278,7 +297,7 @@ class g2o:
         check_n_outliers_lm = 0
         offset_odo = self.n_landmarks+self.n_gps
 
-        # Searching throigh poses looking for constraints
+        # Searching through poses looking for constraints
         path_size = len(x)
         for pose_id in range(path_size-1):
             
@@ -291,7 +310,7 @@ class g2o:
             check_pose_odo = 0
 
             # Odometry constraints
-            for j in range(path_size):
+            for j in range(path_size-1):
                 if  j < pose_id and abs(pose_id - j) > 8:
                     
                     # Checking for loop closure range pose-pose
@@ -302,7 +321,7 @@ class g2o:
                         n_lc_odo += 1
 
                         # Saving pose_pose for visualization
-                        self.pose_pose.append([points[check_pose_odo][0:2], points[pose_id][0:2]])
+                        self.pose_pose.append([pointsN[check_pose_odo][0:2], pointsN[pose_id][0:2]])
 
                         # Computing the relative distance between two poses in close vincinity (Simulating ICP)
                         edge_lc_odo = (pose_id+1, check_pose_odo)
@@ -332,7 +351,7 @@ class g2o:
                         other_pose = np.array([[x[rand_node]], [y[rand_node]], [th[rand_node]]])
                         lc_constraint_odo = self.generate_lc_constraint(random_pose, other_pose)
 
-                        self.pose_pose_outliers.append([points[rand_poseID][0:2], points[rand_node][0:2]])
+                        self.pose_pose_outliers.append([pointsN[rand_poseID][0:2], pointsN[rand_node][0:2]])
                         self.write_loop_constraints(g2oW, "EDGE_SE2", offset_odo, edge_lc_odo, lc_constraint_odo, self.H_odo)
                     
                     check_n_outliers += 1
@@ -375,8 +394,8 @@ class g2o:
                 # Checking distance criteria, pose-landmarks
                 if np.greater(self.lm_lc_range, d_landmark) and lm_lc:
                     
-                    edge_lc_lm = (pose_id+1, lm_id-1)
-                    offset_lm = edge_lc_lm[0]+self.n_landmarks+self.n_gps
+                    offset_lm = self.n_landmarks+self.n_gps
+                    edge_lc_lm = (pose_id+1, lm_id-offset_lm-1)
 
                     # Bearing and adding noise to landmark
                     bearing = calc_bearing(x[pose_id], y[pose_id], pos[0], pos[1])
@@ -385,29 +404,38 @@ class g2o:
                     
                     other_pose = np.array([[pos[0]], [pos[1]], [noisy_bearing]])
                     lc_constraint_lm = self.generate_lc_constraint(curr_pose, other_pose)
-                   
+
+                    # Shapely linestring for intersection
                     line = shapely.geometry.LineString([[x[pose_id], y[pose_id]], [pos[0], pos[1]]])
 
                     # Robot camera FOV of ±pi/2 AND calculating vision intersection with polygons
                     if -pi/2 <= lc_constraint_lm[2,0] <= pi/2 and p_intersection(line, self.cascaded_poly):
 
                         # Saving pose_landmark for visualization
-                        self.pose_landmark.append([points[pose_id][0:2], pos])
+                        self.pose_landmark.append([pointsN[pose_id][0:2], pos])
                         self.landmark_arrow.append([points[pose_id][0], points[pose_id][1], noisy_bearing])
 
-                        self.write_loop_constraints(g2oW, "EDGE_SE2_XY", offset_lm, edge_lc_lm, lc_constraint_lm, self.H_xy)
+                        if self.bearing_only:
+                            l = '{} {} {} {} {} {} {} {} {} {}'.format("EDGE_SE2_XY", edge_lc_lm[0]+offset_lm, edge_lc_lm[1]+offset_lm, 
+                                                                       lc_constraint_lm[0,0], lc_constraint_lm[1,0], lc_constraint_lm[2,0],
+                                                                       self.H_xy[0,0], self.H_xy[0,1], self.H_xy[0,2], self.H_xy[1,1], self.H_xy[1,2], self.H_xy[2,2])
+                            g2o.write(l)                   
+                            g2o.write('\n')
+                        else:
+                            self.write_loop_constraints(g2oW, "EDGE_SE2_XY", offset_lm, edge_lc_lm, lc_constraint_lm, self.H_xy)
 
                         n_lc_lm += 1
 
                         # CORRUPTING LANDMARK DATA
                         if self.corrupt_dataset and check_n_outliers_lm <= self.n_outliers and random.random() < 0.1:
+                            
                             cluster = 1 if self.outlier_type[ct] == 1 or self.outlier_type[ct] == 3 else 7
 
                             for _ in range(cluster):
                                 rand_landmarkID = random.randint(0, path_size-1)
                                 edge_lc_lm = (rand_landmarkID, lm_id-1)
 
-                                self.pose_landmark_outlier.append([points[rand_landmarkID][0:2], pos])
+                                self.pose_landmark_outlier.append([pointsN[rand_landmarkID][0:2], pos])
 
                                 lc_constraint_lm = self.generate_lc_constraint(random_pose, other_pose)
                                 self.write_loop_constraints(g2oW, "EDGE_SE2_XY", offset_lm, edge_lc_lm, lc_constraint_lm, self.H_xy)
@@ -419,9 +447,9 @@ class g2o:
         print('Odometry loop closure: {}\t outliers: {}'.format(n_lc_odo, len(self.pose_pose_outliers)))
         print('Landmark loop closure: {}\t outliers: {}'.format(n_lc_lm, len(self.pose_landmark_outlier)))
 
-    def write_loop_constraints(self, g2o, edge_type, offset, ede_lc, lc_constraint, H):
+    def write_loop_constraints(self, g2o, edge_type, offset, edge_lc, lc_constraint, H):
 
-        l = '{} {} {} {} {} {} {} {} {} {} {} {}'.format(edge_type, ede_lc[0]+offset, ede_lc[1]+offset, 
+        l = '{} {} {} {} {} {} {} {} {} {} {} {}'.format(edge_type, edge_lc[0]+offset, edge_lc[1]+offset, 
                                                          lc_constraint[0,0], lc_constraint[1,0], lc_constraint[2,0],
                                                          H[0,0], H[0,1], H[0,2], H[1,1], H[1,2], H[2,2])
         g2o.write(l)                   
@@ -500,7 +528,7 @@ class g2o:
         #     pox = np.vstack([pose_outliersx[0::2], pose_outliersx[1::2]])
         #     poy = np.vstack([pose_outliersy[0::2], pose_outliersy[1::2]])
         
-        #     plt.plot(pox, poy, color='lime')
+        #     plt.plot(pox, poy, color='gray', alpha=0.3)
         # else:
         #     print("No pose pose outlier loop closures")
 
@@ -513,7 +541,7 @@ class g2o:
             plx = np.vstack([landmark_outliersx[0::2], landmark_outliersx[1::2]])
             ply = np.vstack([landmark_outliersy[0::2], landmark_outliersy[1::2]])
         
-            plt.plot(plx, ply, color='magenta')
+            plt.plot(plx, ply, color='gray', alpha=0.3)
         else:
             print("No pose pose outlier loop closures")
 
@@ -529,7 +557,7 @@ class g2o:
             plx = np.vstack([pose_landmarkx[0::2], pose_landmarkx[1::2]])
             ply = np.vstack([pose_landmarky[0::2], pose_landmarky[1::2]])
             
-            plt.plot(plx, ply, color='blue')
+            plt.plot(plx, ply, color='purple')
         else:
             print("No pose landmark loop closures")
 
@@ -557,7 +585,7 @@ if __name__ == '__main__':
     odometry_file = './g2o_generator/robosim/data/robopath/Aarhus_path1.json'
     genG2O = g2o(odometry_file, filenamePoints, filenamePoly, filelandmarks, 15, 2)
     genG2O.ground_truth()
-    genG2O.generate_g2o(corruption_type='local_grouped', plot=True, plot_outliers=False, plot_constraints=False, plot_robot_heading=True)
+    genG2O.generate_g2o(corruption_type='random', plot=True, plot_outliers=True, plot_constraints=True, plot_robot_heading=True)
 
 
     

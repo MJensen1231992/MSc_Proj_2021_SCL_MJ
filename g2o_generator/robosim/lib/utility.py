@@ -210,6 +210,7 @@ def addNoise(x, y, th, std_x, std_y, std_th):
             thNoise = np.random.normal(0, std_th)
 
         del_xN = del_x + xNoise; del_yN = del_y + yNoise; del_thetaN = del_th + thNoise
+        
 
         # Convert to T2_1'
         T2_1N = np.array([[cos(del_thetaN), -sin(del_thetaN), del_xN], 
@@ -251,6 +252,7 @@ def MAE(predicted, actual):
 
 def ATE(predicted, actual):
 
+    xsum, ysum, ssum = 0, 0, 0
     pred1 = []
     act1 = []
     steps = []
@@ -261,12 +263,16 @@ def ATE(predicted, actual):
 
         pred1.append(sqrt((predicted[0][i+1] - predicted[0][i])**2 + (predicted[1][i+1] - predicted[1][i])**2))
         act1.append(sqrt((actual[0][i+1] - actual[0][i])**2 + (actual[1][i+1] - actual[1][i])**2))
-        steps.append((sqrt((predicted[0][i+1] - predicted[0][i])**2 + (predicted[1][i+1] - predicted[1][i])**2)) - (sqrt((actual[0][i+1] - actual[0][i])**2 + (actual[1][i+1] - actual[1][i])**2)))
-        xsteps.append((sqrt((predicted[0][i+1] - predicted[0][i])**2) - (sqrt((actual[0][i+1] - actual[0][i])**2))))
-        ysteps.append((sqrt((predicted[1][i+1] - predicted[1][i])**2) - (sqrt((actual[1][i+1] - actual[1][i])**2))))
         
+        xsum += sqrt((predicted[0][i+1] - predicted[0][i])**2) - (sqrt((actual[0][i+1] - actual[0][i])**2))
+        ysum += sqrt((predicted[1][i+1] - predicted[1][i])**2) - (sqrt((actual[1][i+1] - actual[1][i])**2))
+        # ssum += xsum + ysum 
 
-    plt.plot(steps, label='total')
+        # steps.append(ssum)
+        xsteps.append(xsum)
+        ysteps.append(ysum)
+        
+    # plt.plot(steps, label='total')
     plt.plot(xsteps, label='xtotal')
     plt.plot(ysteps, label='ytotal')
     plt.legend()

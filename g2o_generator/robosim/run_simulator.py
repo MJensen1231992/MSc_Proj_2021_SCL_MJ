@@ -30,5 +30,5 @@ odometry_file = show.make_robot_path()
 
 # Generating g2o file
 genG2O = gg.g2o(odometry_file, filenamePoints, filenamePoly, landmarksFile, LM_RANGE, ODO_RANGE)
-genG2O.generate_g2o(plot=True, plot_constraints=False, plot_robot_heading=True)
+genG2O.generate_g2o(corruption_type="none",plot=True, plot_constraints=False, plot_robot_heading=True)
 genG2O.ground_truth()
