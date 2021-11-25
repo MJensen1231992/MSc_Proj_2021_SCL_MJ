@@ -36,7 +36,7 @@ class g2o:
         self.time_stamp = time.strftime("%Y%m%d-%H%M%S")
 
         # Corrupt the dataset with outliers
-        self.corrupt_dataset = True
+        self.corrupt_dataset = False
         self.n_outliers = 100
         self.outlier_type = {"random": 1,           # Connect any two randomly sampled nodes in the graph
                              "local": 2,            # Conenct random nodes that ar ein the vincinity of each other
@@ -45,7 +45,7 @@ class g2o:
                              "none": -1}
 
         std_gnss_x = 0.7; std_gnss_y = 0.7
-        std_odo_x = 0.15; std_odo_y = 0.35; std_odo_th = deg2rad(2)
+        std_odo_x = 0.15; std_odo_y = 0.15; std_odo_th = deg2rad(2)
         std_lm_x = 0.5; std_lm_y = 0.5; std_lm_th = deg2rad(2)
 
         # Information matrices: 
@@ -416,11 +416,12 @@ class g2o:
                         self.landmark_arrow.append([points[pose_id][0], points[pose_id][1], noisy_bearing])
 
                         if self.bearing_only:
-                            l = '{} {} {} {} {} {} {} {} {} {}'.format("EDGE_SE2_XY", edge_lc_lm[0]+offset_lm, edge_lc_lm[1]+offset_lm, 
-                                                                       lc_constraint_lm[0,0], lc_constraint_lm[1,0], lc_constraint_lm[2,0],
-                                                                       self.H_xy[0,0], self.H_xy[0,1], self.H_xy[0,2], self.H_xy[1,1], self.H_xy[1,2], self.H_xy[2,2])
-                            g2o.write(l)                   
-                            g2o.write('\n')
+
+                            l = '{} {} {} {} {}'.format("EDGE_SE2_XY", edge_lc_lm[0]+offset_lm, edge_lc_lm[1]+offset_lm, 
+                                                                       lc_constraint_lm[2,0],
+                                                                       self.H_xy[2,2])
+                            g2oW.write(l)                   
+                            g2oW.write('\n')
                         else:
                             self.write_loop_constraints(g2oW, "EDGE_SE2_XY", offset_lm, edge_lc_lm, lc_constraint_lm, self.H_xy)
 

@@ -99,6 +99,8 @@ class CSV_Reader:
         else:
             pass
         
+        # dist = self.distance_traveled(np.array(fixed[0]), np.array(fixed[1]))
+        # print(f"Distance traveled: {dist:.2f} m")
 
         if self.if_plot:
             self.plot_route(self.descriptor, gnss=gnss, odo=odo, fixed=fixed)
@@ -120,6 +122,7 @@ class CSV_Reader:
         elif descriptor == 'all':
             plt.scatter(np.array(gnss[0]), np.array(gnss[1]), color='blue', marker='x', label='GNSS', alpha=0.3)
             plt.plot(np.array(odo[0]), np.array(odo[1]), color='red', marker='o', label='Odometry', alpha=0.5)
+            # plt.quiver(np.array(fixed[0]), np.array(fixed[1]), np.cos(np.array(fixed[2])), np.sin(np.array(fixed[2])), angles='xy', color='red', scale=20)
             plt.plot(np.array(fixed[0]), np.array(fixed[1]), color='green', marker='o', label='Fixed odometry')
             
         plt.legend()
@@ -130,6 +133,16 @@ class CSV_Reader:
     def to_utm(lat, lon):
         xutm, yutm, _, _ = utm.from_latlon(lat, lon, force_zone_number=32, force_zone_letter='U')
         return xutm, yutm
+
+    @staticmethod
+    def distance_traveled(x, y):
+
+        x = np.vstack(x)
+        y = np.vstack(y)
+        route = np.hstack((x,y))
+        distance = sum([np.linalg.norm(pt1 - pt2) for pt1, pt2 in zip(route[:-1], route[1:])])
+
+        return distance
 
 def main():
 
