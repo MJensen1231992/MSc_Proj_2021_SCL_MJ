@@ -107,7 +107,7 @@ if __name__ == "__main__":
 
     pi = np.array([[3,4]])
     pj = np.array([[5,5]])
-
+    
 
     delta = np.linalg.inv(pi) @ pj
     print(delta)

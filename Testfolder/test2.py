@@ -53,7 +53,12 @@ from math import sin, cos
 # for Xr, z in combs:
 #     print(Xr, z)
 
-lm_poses = np.random.default_rng().uniform(0,10,(4,2))
+# lm_poses = np.random.default_rng().uniform(0,10,(4,2))
 
-print(lm_poses)
-print(lm_poses[0,2])
+# print(lm_poses)
+# print(lm_poses[0,1])
+n_poses = 5
+r = [[0,1],[1,1],[2,1],[3,1],[4,1],[5,1],[6,2],[6.5,3],[7,4],[6,5],[5,6]]
+route = r[0:n_poses]
+
+print(route)
