@@ -1,3 +1,4 @@
+from math import inf
 import numpy as np
 from collections import namedtuple
 from helper import from_uppertri_to_full
@@ -39,7 +40,7 @@ def load_g2o_graph(filename, noBearing=True):
                 nodeTypes[nodeId] = nodeType
 
             elif data[0] == 'EDGE_SE2':
-
+                #print('hej P')
                 Type = 'P' # pose type
                 nodeFrom = int(data[1])
                 nodeTo = int(data[2])
@@ -50,20 +51,21 @@ def load_g2o_graph(filename, noBearing=True):
                 #      [upperTriangle[1], upperTriangle[2], upperTriangle[5]],
                 #      [upperTriangle[4], upperTriangle[5], upperTriangle[3]]]) #Toro
                 information = from_uppertri_to_full(upperTriangle,3)
-                
+                #print(f"shape pose{np.shape(information)}")
+               #print(f"shape pose posemeas{np.shape(poseMeasurement)}")
                 edge = Edge(Type, nodeFrom, nodeTo, poseMeasurement, information)
                 edges.append(edge)
-                
+            
 
             elif data[0] == 'EDGE_SE2_XY':
-
+                
                 Type = 'L' #landmark type
                 nodeFrom = int(data[1])
                 nodeTo = int(data[2])
                 
                 if noBearing: #If we dont have any bearing to landmark
                     poseMeasurement = np.array(data[3:5],dtype=np.float64)
-                    upperTriangle = np.array(data[5:8],dtype=np.float64)
+                    upperTriangle = np.array(data[5:8],dtype=np.float64) #data[5:8] if benchmark else 9:12
                     information = from_uppertri_to_full(upperTriangle,2)
                     
                 else: #If we need landmark bearing
@@ -87,6 +89,18 @@ def load_g2o_graph(filename, noBearing=True):
                 edge = Edge(Type, nodeFrom,nodeTo, poseMeasurement, information)
                 edges.append(edge)
 
+            elif data[0] == 'EDGE_BEARING_SE2_XY':
+                
+                Type = 'B' #landmark type
+                nodeFrom = int(data[1])
+                nodeTo = int(data[2])                
+                poseMeasurement = float(data[5])#,dtype=np.float64)
+                poseMeasurement = np.atleast_1d(poseMeasurement)
+                information = float(data[11])#,dtype=np.float64)
+                information = np.atleast_2d(information)
+                edge = Edge(Type, nodeFrom,nodeTo, poseMeasurement, information)
+                edges.append(edge)
+            
             else: 
                 print("Error, edge or vertex not defined")
 
@@ -101,8 +115,8 @@ def load_g2o_graph(filename, noBearing=True):
     
     # collect nodes, edges and lookup in graph structure
     from run_slam import Graph
-    lambdaH = 1
-    graph = Graph(x, nodes, edges, lut, nodeTypes,lambdaH)
+    
+    graph = Graph(x, nodes, edges, lut, nodeTypes)
     
     print('Loaded graph with {} nodes and {} edges'.format(
         len(graph.nodes), len(graph.edges)))

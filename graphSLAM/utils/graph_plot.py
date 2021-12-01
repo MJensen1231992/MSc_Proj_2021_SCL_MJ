@@ -70,7 +70,7 @@ def graph_plot(graph, animate = False, poseEdgesPlot = True, landmarkEdgesPlot =
         if poseEdgesPlot == True:
             plt.plot(poseEdgeX_corr,poseEdgeY_corr,'r--',label = 'poseEdges')
     
-    if len(landmarks) > 0:
+    if len(landmarks) > 0 and edge.Type == 'L':
 
         landmarkEdgesFrom = np.stack(landmarkEdgesFrom, axis = 0)
         landmarkEdgesTo = np.stack(landmarkEdgesTo, axis = 0)

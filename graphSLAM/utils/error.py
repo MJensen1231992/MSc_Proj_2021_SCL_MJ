@@ -25,25 +25,44 @@ def iterative_global_landerror(x,l,zij):
     
     return land_error
 
-
 def iterative_global_landmark_bearing_error(x,l,zij):
     #land_error = iterative_global_landerror(x,l,zij)
     #z = np.expand_dims(zij,axis=1) # measurement
+    #R_i = vec2trans(x)[:2,:2]
     z_bearing = zij[2]
     x_j = l.reshape(2,1)
     t_i = x[:2].reshape(2,1)
     theta_i = x[2]
 
     #robot_landmark_angle
-    r_l_trans =(x_j-t_i)
+    r_l_trans = (x_j-t_i)
+    #r_l_trans = R_i.T @ (x_j-t_i)
     r_l_angle = math.atan2(r_l_trans[1],r_l_trans[0])
     
     land_bearing_error= wrap2pi(wrap2pi(r_l_angle-theta_i)-z_bearing)
-    #land_bearing_error = np.vstack((land_bearing, land_error))
+    
+    return land_bearing_error
+
+def iterative_global_landmark_bearing_only_error(x,l,zij):
+    #land_error = iterative_global_landerror(x,l,zij)
+    #z = np.expand_dims(zij,axis=1) # measurement
+    #R_i = vec2trans(x)[:2,:2]
+    z_bearing = zij
+    x_j = l.reshape(2,1)
+    t_i = x[:2].reshape(2,1)
+    theta_i = x[2]
+
+    #robot_landmark_angle
+    r_l_trans = (x_j-t_i)
+    #r_l_trans = R_i.T @ (x_j-t_i)
+    r_l_angle = math.atan2(r_l_trans[1],r_l_trans[0])
+    
+    land_bearing_error= wrap2pi(wrap2pi(r_l_angle-theta_i)-z_bearing)
+    
     return land_bearing_error
 
 
-def compute_global_error(graph, noBearing: bool = True):
+def compute_global_error(graph, noBearing: bool = False):
     
     err_Full = 0 
     err_Land = 0
