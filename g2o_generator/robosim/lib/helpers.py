@@ -22,6 +22,16 @@ def min_theta(theta_i, theta_j):
     
     return diff
 
+def wrap2pi(angle):
+
+    if angle > np.pi:
+        angle = angle-2*np.pi
+
+    elif angle < -np.pi:
+        angle = angle + 2*np.pi
+
+    return angle
+
 def vec2trans(p):
     T = np.array([[cos(p[2]), -sin(p[2]), p[0]], 
                  [sin(p[2]),  cos(p[2]), p[1]], 

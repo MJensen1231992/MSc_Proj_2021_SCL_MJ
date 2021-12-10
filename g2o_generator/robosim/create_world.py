@@ -92,6 +92,10 @@ class world:
                 full_route_poses = [[pose[0], pose[1], theta] for pose, theta in zip(full_route, angles)]
                 x_odo, y_odo, th_odo = zip(*full_route_poses)
 
+                
+                # plt.plot(x_odo, y_odo, color='blue')
+                # plt.quiver(x_odo, y_odo, cos(th_odo), sin(th_odo), angles='xy')
+                # plt.show()
 
                 # Saving the reduced route to json file 
                 json_path = np.array([x_odo, y_odo, th_odo])

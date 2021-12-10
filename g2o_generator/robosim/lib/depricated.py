@@ -122,3 +122,87 @@ def addNoisev2(x,y,th):
         
 
     return xN, yN, tN
+
+class ICP:
+
+    def del_miss(self, indeces, dist, max_dist, th_rate = 0.8):
+        th_dist = max_dist * th_rate
+        return np.array([indeces[0][np.where(dist.T[0] < th_dist)]])
+
+    def is_converge(self, Tr, scale):
+        delta_angle = 0.0001
+        delta_scale = scale * 0.0001
+        
+        min_cos = 1 - delta_angle
+        max_cos = 1 + delta_angle
+        min_sin = -delta_angle
+        max_sin = delta_angle
+        min_move = -delta_scale
+        max_move = delta_scale
+        
+        return min_cos < Tr[0, 0] and Tr[0, 0] < max_cos and \
+               min_cos < Tr[1, 1] and Tr[1, 1] < max_cos and \
+               min_sin < -Tr[1, 0] and -Tr[1, 0] < max_sin and \
+               min_sin < Tr[0, 1] and Tr[0, 1] < max_sin and \
+               min_move < Tr[0, 2] and Tr[0, 2] < max_move and \
+               min_move < Tr[1, 2] and Tr[1, 2] < max_move
+
+
+    def ICP(self, d1, d2, max_iterate = 100):
+
+        src = np.array([d1.T], copy=True).astype(np.float32)
+        dst = np.array([d2.T], copy=True).astype(np.float32)
+        
+        knn = cv2.ml.KNearest_create()
+        responses = np.array(range(len(d2[0]))).astype(np.float32)
+        knn.train(src[0], cv2.ml.ROW_SAMPLE, responses)
+            
+        Tr = np.array([[np.cos(0), -np.sin(0), 0],
+                       [np.sin(0), np.cos(0),  0],
+                       [0,         0,          1]])
+
+        dst = cv2.transform(dst, Tr[0:2])
+        max_dist = sys.maxsize
+        
+        scale_x = np.max(d1[0]) - np.min(d1[0])
+        scale_y = np.max(d1[1]) - np.min(d1[1])
+        scale = max(scale_x, scale_y)
+        
+        for _ in range(max_iterate):
+            _, results, _, dist = knn.findNearest(dst[0], 1)
+            
+            indeces = results.astype(np.int32).T     
+            indeces = self.del_miss(indeces, dist, max_dist)  
+            
+            T, _ = cv2.estimateAffinePartial2D(dst[0, indeces], src[0, indeces], True)
+
+            max_dist = np.max(dist)
+            dst = cv2.transform(dst, T)
+            Tr = np.dot(np.vstack((T,[0,0,1])), Tr)
+            
+            if (self.is_converge(T, scale)):
+                break
+            
+        return Tr[0:2]
+
+class LandmarkAssociation:
+
+    def __init__(self):
+        self.bearing_only = BearingOnly()
+        self.ICP = ICP()
+
+        # Random guess
+        self.cluster_interval = (3,10)
+        self.L_thresh = 15
+        
+        self.landmark_hist = []
+        self.clusters = {}
+
+    def do_landmark_association(self, curr_pose, curr_landmark):
+
+        if curr_landmark in self.landmark_hist:
+            pass
+        else:
+            self.landmark_hist.append(curr_landmark)
+
+        return
