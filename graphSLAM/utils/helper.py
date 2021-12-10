@@ -93,12 +93,13 @@ def RMSE(predicted, actual):
 
 
 def calc_gradient_hessian(A,B,information,error, edgetype: str):
-                
+    
     if edgetype == 'P':
         b_i = np.dot(np.dot(A.T,information), error).reshape(3,1)
         b_j = np.dot(np.dot(B.T,information), error).reshape(3,1)
 
     else:
+        
         b_i = np.dot(np.dot(A.T,information), error).reshape(3,1)
         b_j = np.dot(np.dot(B.T,information), error).reshape(2,1)
 

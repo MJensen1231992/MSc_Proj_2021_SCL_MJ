@@ -1,9 +1,9 @@
 from math import inf
 import numpy as np
 from collections import namedtuple
-from helper import from_uppertri_to_full
+from helper import from_uppertri_to_full, wrap2pi
 
-def load_g2o_graph(filename, noBearing=True):
+def load_g2o_graph(filename, noBearing=True):#, firstMeas=True):
     
     Edge = namedtuple(
         'Edge', ['Type', 'nodeFrom', 'nodeTo', 'poseMeasurement', 'information'] # g2o format of files.
@@ -11,12 +11,14 @@ def load_g2o_graph(filename, noBearing=True):
     edges = []
     nodes = {}
     nodeTypes = {}
+    lm_status = {}
+
     with open(filename, 'r') as file:
         for line in file:
             data = line.split() # splits the columns
             
             if data[0] == 'VERTEX_SE2':
-
+                
                 nodeType = 'VSE2'
                 nodeId = int(data[1])
                 pose = np.array(data[2:5],dtype=np.float64)
@@ -32,7 +34,7 @@ def load_g2o_graph(filename, noBearing=True):
                 nodeTypes[nodeId] = nodeType
 
             elif data[0] == 'VERTEX_GPS':
-
+                continue
                 nodeType = 'VGPS'
                 nodeId = int(data[1])
                 gps_point = np.array(data[2:4],dtype=np.float64)
@@ -41,6 +43,7 @@ def load_g2o_graph(filename, noBearing=True):
 
             elif data[0] == 'EDGE_SE2':
                 #print('hej P')
+                
                 Type = 'P' # pose type
                 nodeFrom = int(data[1])
                 nodeTo = int(data[2])
@@ -78,7 +81,7 @@ def load_g2o_graph(filename, noBearing=True):
                 
 
             elif data[0] == 'EDGE_SE2_GPS':
-
+                continue
                 Type = 'G' #landmark type
                 nodeFrom = int(data[1])
                 nodeTo = int(data[2])                
@@ -89,21 +92,55 @@ def load_g2o_graph(filename, noBearing=True):
                 edge = Edge(Type, nodeFrom,nodeTo, poseMeasurement, information)
                 edges.append(edge)
 
-            elif data[0] == 'EDGE_BEARING_SE2_XY':
-                
+            elif data[0] == 'EDGE_SE2_BEARING' or 'EDGE_BEARING_SE2_XY':
+                #print(f"data {data}")
                 Type = 'B' #landmark type
                 nodeFrom = int(data[1])
                 nodeTo = int(data[2])                
                 poseMeasurement = float(data[5])#,dtype=np.float64)
-                poseMeasurement = np.atleast_1d(poseMeasurement)
                 information = float(data[11])#,dtype=np.float64)
-                information = np.atleast_2d(information)
+                
                 edge = Edge(Type, nodeFrom,nodeTo, poseMeasurement, information)
                 edges.append(edge)
+
+                x_b = nodes[nodeFrom]
+                z_ij = poseMeasurement
+                # print(f"Robot pose from(loader):\n{x_b}\nBearing(loader)\n{z_ij}\n")
+
             
+                # print(f"nodeFrom{nodeFrom}")
+
+                # if firstMeas:
+                
+                #     firstMeas = False
+
+                lm_status.update(dict([(nodeTo, False)]))
+                #print(lm_status)
+                for id, status in lm_status.items():
+                    if id == nodeTo and status == False:
+                        #calcguess
+                        lambdadistx = 5
+                        lambdadisty = 5
+                        xguess = x_b[0]+lambdadistx*np.cos(wrap2pi(x_b[2]+z_ij))
+                        yguess = x_b[1]+lambdadisty*np.sin(wrap2pi(x_b[2]+z_ij))
+
+                        nodeType = 'VXY'
+                        nodeId = nodeTo
+                        landmark = np.array([xguess,yguess],dtype=np.float64)  
+                        nodes[nodeId] = landmark
+                        nodeTypes[nodeId] = nodeType
+                        lm_status[nodeTo]=True
+                    
+                #if lm_status:
+
+                    else:
+                        continue
+                
+                print(f"landmark dict: \n{lm_status}\n")
             else: 
                 print("Error, edge or vertex not defined")
-
+    
+                
     lut = {}
     x = []
     offset = 0
