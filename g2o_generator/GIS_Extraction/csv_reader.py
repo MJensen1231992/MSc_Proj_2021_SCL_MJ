@@ -58,6 +58,10 @@ class read_csv():
                                 self.rowPoints.setdefault(feature, [])
                                 self.rowPoints[feature].append(([xutm, yutm]))
 
+        # Adding manual landmark:
+        self.rowPoints['bin'].append(([574689, 6222470]))
+        self.rowPoints['bench'].append(([574577, 6222430]))
+
         # Saveing landmarks as json                            
         if True:
             save_to_json(self.rowPoints,'./g2o_generator/GIS_Extraction/landmarks/landmarks_w_types.json', indent=4)

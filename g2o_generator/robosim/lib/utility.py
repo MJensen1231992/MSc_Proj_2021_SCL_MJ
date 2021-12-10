@@ -69,14 +69,14 @@ def traj(Pi, Pj, t, alpha):
     return sqrt(((xj - xi)**2 + (yj - yi)**2))**alpha + t
 
 
-def robot_heading(x, y, theta, color: str, length: float=1):
+def robot_heading(x, y, theta, color: str, length: float=1, alpha=1):
         """
         Method that plots the heading of every pose
         """
         dx = np.cos(theta)
         dy = np.sin(theta)
 
-        plt.quiver(x, y, dx, dy, color=color, angles='xy', scale_units='xy', scale=length)
+        plt.quiver(x, y, dx, dy, color=color, angles='xy', scale_units='xy', scale=length, alpha=alpha)
 
 
 def reduce_dimensions(route, descriptor: str='half'):
@@ -173,7 +173,7 @@ def add_landmark_noise(landmarks, std_lm_x: float=0.5, std_lm_y: float=0.5):
     
     return new_landmarks
     
-def addNoise(x, y, th, std_x, std_y, std_th):
+def addNoise(x, y, th, std_x, std_y, std_th, mu):
 
     """Takes in odometry values and adding noise in relative pose
 
@@ -205,8 +205,8 @@ def addNoise(x, y, th, std_x, std_y, std_th):
         if(i<5):
             xNoise = 0; yNoise = 0; thNoise = 0
         else:
-            xNoise = np.random.normal(0, std_x); 
-            yNoise = np.random.normal(0, std_y); 
+            xNoise = np.random.normal(0.1, std_x)
+            yNoise = np.random.normal(mu, std_y) 
             thNoise = np.random.normal(0, std_th)
 
         del_xN = del_x + xNoise; del_yN = del_y + yNoise; del_thetaN = del_th + thNoise
@@ -214,8 +214,8 @@ def addNoise(x, y, th, std_x, std_y, std_th):
 
         # Convert to T2_1'
         T2_1N = np.array([[cos(del_thetaN), -sin(del_thetaN), del_xN], 
-                         [sin(del_thetaN), cos(del_thetaN), del_yN], 
-                         [0, 0, 1]])
+                          [sin(del_thetaN),  cos(del_thetaN), del_yN], 
+                          [0, 0, 1]])
 
         # Get T2_w' = T1_w' . T2_1'
         p1 = (xN[i-1], yN[i-1], tN[i-1])

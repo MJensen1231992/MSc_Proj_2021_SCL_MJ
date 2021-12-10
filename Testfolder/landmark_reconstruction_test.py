@@ -51,7 +51,7 @@ class Test_LM:
 
         for i in range(len(lm_poses[:,0])):
             for x, y, _ in route_poses:
-                e = np.deg2rad(np.random.normal(0, sigma))#+np.deg2rad(2)
+                e = np.random.normal(0, np.deg2rad(sigma))#+np.deg2rad(2)
                 # print(np.rad2deg(e))
                 gt_bearing = atan2(lm_poses[i,1]-y,lm_poses[i,0]-x)+e
                 b.append(gt_bearing)
@@ -60,7 +60,7 @@ class Test_LM:
         b_stack = np.reshape(b_stack, (len(lm_poses[:,0]), len(route_poses)))
         route = np.vstack(route_poses)
 
-        if n_poses > 6 and sigma > 2.5:
+        if n_poses > 7 and sigma > 2.5:
             plt.figure(101)
             plt.scatter(route[:,0],route[:,1], color='blue', label='robot poses')
             # plt.quiver(route[:,0],route[:,1], np.cos(route[:,2]), np.sin(route[:,2]), angles='xy', scale=4, color='red', alpha=0.5)
@@ -83,7 +83,7 @@ class Test_LM:
 
 def main():
 
-    # sigma = np.linspace(0, 8, 100)
+    # sigma = np.linspace(0, 3, 100)
 
     # ls_stat = []
     # tri_stat = []
@@ -124,7 +124,7 @@ def main():
         # Xl_ls = np.reshape(Xl_ls, dim)
 
         # Xl_tri = np.ndarray.flatten(Xl_tri)
-        # # Xl_tri = np.vstack(Xl_tri)
+        # Xl_tri = np.vstack(Xl_tri)
         # Xl_tri = np.reshape(Xl_tri, dim)
 
         # plt.figure()
@@ -143,6 +143,8 @@ def main():
     
     # plt.plot(sigma[1:], ls_stat, label='Error - Least squares', color='orange')
     # plt.plot(sigma[1:], tri_stat, label='Error - Triangulation', color='red', alpha=0.5)
+    # plt.axhline(y=np.mean(np.array(ls_stat)), color='green', linestyle='-', label="Avg error - Least squares")
+    # plt.axhline(y=np.mean(np.array(tri_stat)), color='blue', linestyle='-', label="Avg error - Triangulation")
     # plt.xlabel('Bearing variance [rad]')
     # plt.ylabel('Dist error [m]')
     # plt.grid()
@@ -208,7 +210,7 @@ def main():
                 # print(Xl_ls)
                 # print(Xl_tri)
                 
-                if n > 6 and s > 2.5:
+                if n > 7 and s > 2.5:
                     print(f"Distance error: ls: {ls_e} \t \ttri: {tri_e}")
                     print(f"Amount of poses: {n}\nVariance: {s}")
                     plt.figure(101)
@@ -234,7 +236,7 @@ def main():
         plt.figure(int(n)-1)
         plt.plot(sigma, tri_tot, label='Error - Triangulation', color='orange')
         plt.plot(sigma, ls_tot, label='Error - Least squares', color='red', alpha=0.5)
-        plt.xlabel('Bearing variance [rad]')
+        plt.xlabel('Bearing variance [deg]')
         plt.ylabel('Dist error [m]')
         plt.ylim([0,4])
         plt.title(title)
