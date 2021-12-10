@@ -1,5 +1,4 @@
 import numpy as np
-from numpy.linalg import inv
 
 def get_poses_landmarks(graph):
 
@@ -24,6 +23,7 @@ def get_poses_landmarks(graph):
             gps.append(gp)
 
     return poses, landmarks, gps
+    
 def vec2trans(pose):
 
     c = np.cos([pose[2]])
@@ -67,3 +67,81 @@ def from_uppertri_to_full(arr, n):
     mat[tril1] = mat[triu1]
 
     return mat
+
+def vision_length_check(graph):
+    
+    ks= []
+    for edge in graph.edges:
+        if edge.Type == 'L':
+            x = (np.abs(edge.poseMeasurement[0]))
+            y = (np.abs(edge.poseMeasurement[1]))
+            ks.append(np.sqrt([x**2+y**2]))
+    print(max(ks))
+
+def wrap2pi(angle):
+
+    if angle > np.pi:
+        angle = angle-2*np.pi
+        
+    elif angle < -np.pi:
+        angle = angle + 2*np.pi
+    
+    return angle
+
+def RMSE(predicted, actual):
+    return np.square(np.subtract(actual,predicted)).mean() 
+
+
+def calc_gradient_hessian(A,B,information,error, edgetype: str):
+    
+    if edgetype == 'P':
+        b_i = np.dot(np.dot(A.T,information), error).reshape(3,1)
+        b_j = np.dot(np.dot(B.T,information), error).reshape(3,1)
+
+    else:
+        
+        b_i = np.dot(np.dot(A.T,information), error).reshape(3,1)
+        b_j = np.dot(np.dot(B.T,information), error).reshape(2,1)
+
+
+    H_ii = np.dot(np.dot(A.T,information), A) 
+    H_ij = np.dot(np.dot(A.T,information), B) 
+    H_ji = np.dot(np.dot(B.T,information), A) 
+    H_jj = np.dot(np.dot(B.T,information), B)  
+    
+    return b_i, b_j, H_ii, H_ij, H_ji, H_jj
+
+def build_gradient_hessian(b_i, b_j, H_ii, H_ij, H_ji, H_jj,H,b,fromIdx,toIdx, edgetype: str):
+    
+    if edgetype=='P':
+
+        H[fromIdx:fromIdx+3, fromIdx:fromIdx+3] += H_ii
+        H[fromIdx:fromIdx+3, toIdx:toIdx+3] += H_ij
+        H[toIdx:toIdx+3, fromIdx:fromIdx+3] += H_ji
+        H[toIdx:toIdx+3, toIdx:toIdx+3] += H_jj
+
+        b[fromIdx:fromIdx+3] += b_i
+        b[toIdx:toIdx+3] += b_j
+
+    else:
+
+        H[fromIdx:fromIdx+3, fromIdx:fromIdx+3] += H_ii
+        H[fromIdx:fromIdx+3, toIdx:toIdx+2] += H_ij
+        H[toIdx:toIdx+2, fromIdx:fromIdx+3] += H_ji
+        H[toIdx:toIdx+2, toIdx:toIdx+2] += H_jj
+        
+        b[fromIdx:fromIdx+3] += b_i
+        b[toIdx:toIdx+2] += b_j
+
+    return H, b
+
+def printPrincipalDiagonal(mat, n):
+    print("Principal Diagonal: ", end = "")
+ 
+    for i in range(n):
+        for j in range(n):
+ 
+            # Condition for principal diagonal
+            if (i == j):
+                print(mat[i][j], end = ", ")
+    print()
