@@ -45,7 +45,7 @@ class g2o:
                              "none": -1}
 
         std_gnss_x = 0.7; std_gnss_y = 0.7
-        std_odo_x = 0.1; std_odo_y = 0.1; std_odo_th = deg2rad(0.01); mu_bias = 0.2
+        std_odo_x = 0.1; std_odo_y = 0.2; std_odo_th = deg2rad(0.01); mu_bias = 0.5
         std_lm_x = 0.7; std_lm_y = 0.7; self.std_lm_th = deg2rad(1)
 
         # Information matrices: 
@@ -59,7 +59,10 @@ class g2o:
                                               [0, std_gnss_y**2]]))
         self.H_xy = np.linalg.inv(np.array([[std_lm_x**2, 0, 0],
                                             [0, std_lm_y**2, 0],
-                                            [0, 0, np.sin(self.std_lm_th**2)]]))
+                                            [0, 0, 0.01**2]]))
+        # self.H_xy = np.linalg.inv(np.array([[std_lm_x**2, 0, 0],
+        #                                     [0, std_lm_y**2, 0],
+        #                                     [0, 0, np.sin(self.std_lm_th**2)]]))
 
         # Loading and extracting save odometry route
         odometry = load_from_json(odometry_file)

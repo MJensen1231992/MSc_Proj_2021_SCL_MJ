@@ -202,10 +202,10 @@ def addNoise(x, y, th, std_x, std_y, std_th, mu):
         del_th = atan2(T2_1[1, 0], T2_1[0, 0])
 
         # Add noise
-        if(i<5):
+        if(i<0):
             xNoise = 0; yNoise = 0; thNoise = 0
         else:
-            xNoise = np.random.normal(0.1, std_x)
+            xNoise = np.random.normal(0, std_x)
             yNoise = np.random.normal(mu, std_y) 
             thNoise = np.random.normal(0, std_th)
 
