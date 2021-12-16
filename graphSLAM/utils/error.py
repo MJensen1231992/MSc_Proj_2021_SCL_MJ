@@ -73,7 +73,7 @@ def compute_global_error(graph, noBearing: bool = False):
     err_Land = 0
     err_Pose = 0
     err_GPS = 0
-    
+    err_bearing = 0
 
     for edge in graph.edges:
 
@@ -91,16 +91,43 @@ def compute_global_error(graph, noBearing: bool = False):
             x2_trans = vec2trans(x2)
 
             z_12_inv = inv(vec2trans(z_12))
-            #print(f"x_j pose:\n{x2}\n x_j trans pose:\n{x2_trans}\n")
-            #print(f"x_j pose:\n{x2}\n x_j trans pose:\n{x2_trans}\n")
-            #print(f"trans between xi and xj:\n{np.dot(x1_inv_trans, x2_trans)}\n")
+            
             #Error from cyrill posegraph video 34:00
+
             err_Full += np.linalg.norm(trans2vec(np.dot(z_12_inv,np.dot(x1_inv_trans, x2_trans))))
-            err_Pose += trans2vec(np.dot(z_12_inv,np.dot(x2_trans,x1_inv_trans)))
+
+            err_Pose += trans2vec(np.abs(np.dot(z_12_inv,np.dot(x1_inv_trans, x2_trans))))
+            # print(err_Pose[2])
+            # print(trans2vec(np.dot(z_12_inv,np.dot(x1_inv_trans, x2_trans)))[2])
+        
+        elif edge.Type =='B':
+
+            fromIdx = graph.lut[edge.nodeFrom]
+            toIdx = graph.lut[edge.nodeTo]
+
+            x = graph.x[fromIdx:fromIdx+3]
+            l = graph.x[toIdx:toIdx+2]
+            z = edge.poseMeasurement
+            z_bearing = z
+            x_j = l.reshape(2,1) #gæt 
+            t_i = x[:2].reshape(2,1) # robot translation(x,y)
+            theta_i = x[2]# robot heading
+
+            #robot_landmark_angle
+            r_l_trans = (x_j-t_i)
+            #r_l_trans = np.dot(R_i.T,(x_j-t_i))
+            r_l_angle = math.atan2(r_l_trans[1],r_l_trans[0])
+            #print(f"Robot landmark trans is:\n{r_l_trans}\n from pose:{t_i} to {x_j}\nRobot landmark angle is:\n{r_l_angle}\n")#x_j for landmark is:\n{x_j}\nRobot translation is:\n{t_i}\n
+            err_Full += np.linalg.norm((wrap2pi(wrap2pi((r_l_angle-theta_i))-z_bearing)))
+            err_bearing += np.abs(wrap2pi(wrap2pi((r_l_angle-theta_i))-z_bearing))
+            # print(f"bearing error:\n{err_bearing}\n")
+            # print(wrap2pi(wrap2pi((r_l_angle-theta_i))-z_bearing))
+            # print(np.abs((wrap2pi(wrap2pi((r_l_angle-theta_i))-z_bearing))))
             
             
         elif edge.Type == 'L':
-
+            continue
+            print('entered L')
             fromIdx = graph.lut[edge.nodeFrom]
             toIdx = graph.lut[edge.nodeTo]
 
@@ -128,7 +155,8 @@ def compute_global_error(graph, noBearing: bool = False):
             
             
         elif edge.Type == 'G':
-
+            continue
+            print('entered L')
             fromIdx = graph.lut[edge.nodeFrom]
             toIdx = graph.lut[edge.nodeTo]
 
@@ -148,8 +176,11 @@ def compute_global_error(graph, noBearing: bool = False):
             # err_GPS += (np.dot(x_inv_trans,gpsEdge) - z)
             err_Full += np.linalg.norm(np.dot(R_xi.T,(gpsEdge-t_i))-z)
             err_GPS += np.dot(R_xi.T,(gpsEdge-t_i))-z
-    
-    return err_Full, err_Pose, err_Land, err_GPS
+        
+        else:
+            print('fuck')
+
+    return err_Full, err_Pose, err_bearing, err_Land, err_GPS
 
 
 
@@ -167,20 +198,20 @@ def dynamic_covariance_scaling(chi2, phi):
     return s_ij
 
 
-def calc_error_diff_slam(graph):
-    err_opt_f = []
-    err_diff = []
-    diff = []
-    e_pose = []
-    e_land = []
-    e_gps = []
+# def calc_error_diff_slam(graph):
+#     err_opt_f = []
+#     err_diff = []
+#     diff = []
+#     e_pose = []
+#     e_land = []
+#     e_gps = []
     
-    error_before, err_pose , err_land , err_gps = compute_global_error(graph)
-    #print(f"error: {error_before}")
-    err_opt_f.append(error_before)
-    #e_pose.setdefault(i, [])
-    #e_pose[i].append(err_pose)
-    e_pose.append(err_pose)
-    e_land.append(err_land)
-    e_gps.append(err_gps)
-    return err_opt_f
+#     error_before, err_pose , err_land , err_gps = compute_global_error(graph)
+#     #print(f"error: {error_before}")
+#     err_opt_f.append(error_before)
+#     #e_pose.setdefault(i, [])
+#     #e_pose[i].append(err_pose)
+#     e_pose.append(err_pose)
+#     e_land.append(err_land)
+#     e_gps.append(err_gps)
+#     return err_opt_f

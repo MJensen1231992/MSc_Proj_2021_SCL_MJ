@@ -1,14 +1,10 @@
 from math import inf
 import numpy as np
-from lib.least_squares import LeastSquares as LS
-from lib.triangulation import Triangulation as TRI
-from collections import namedtuple, defaultdict
+from collections import namedtuple
 from helper import from_uppertri_to_full, wrap2pi
 
 def load_g2o_graph(filename, noBearing=True):#, firstMeas=True):
     
-    print(f"Loading file: {filename[15:-20]}")
-
     Edge = namedtuple(
         'Edge', ['Type', 'nodeFrom', 'nodeTo', 'poseMeasurement', 'information'] # g2o format of files.
     )
@@ -16,10 +12,7 @@ def load_g2o_graph(filename, noBearing=True):#, firstMeas=True):
     nodes = {}
     nodeTypes = {}
     lm_status = {}
-    initial_b_guess = False
-    initial_qualified_guess = True
 
- 
     with open(filename, 'r') as file:
         for line in file:
             data = line.split() # splits the columns
@@ -34,11 +27,13 @@ def load_g2o_graph(filename, noBearing=True):#, firstMeas=True):
 
             elif data[0] == 'VERTEX_XY':
                 if filename[15:-20] == 'ground_truth':
+                    
                     nodeType = 'VXY'
                     nodeId = int(data[1])
                     landmark = np.array(data[2:4],dtype=np.float64)  
                     nodes[nodeId] = landmark
                     nodeTypes[nodeId] = nodeType
+                #print(f"landmark{landmark}")
                 else:
                     continue
 
@@ -101,7 +96,8 @@ def load_g2o_graph(filename, noBearing=True):#, firstMeas=True):
                 edge = Edge(Type, nodeFrom,nodeTo, poseMeasurement, information)
                 edges.append(edge)
 
-            elif data[0] == 'EDGE_SE2_BEARING' or 'EDGE_BEARING_SE2_XY':
+            elif data[0] ==  'EDGE_SE2_BEARING':
+                
                 #print(f"data {data}")
                 Type = 'B' #landmark type
                 nodeFrom = int(data[1])
@@ -109,14 +105,36 @@ def load_g2o_graph(filename, noBearing=True):#, firstMeas=True):
                 poseMeasurement = float(data[3])#,dtype=np.float64)
                 information = float(data[4])#,dtype=np.float64)
                 
-                edge = Edge(Type, nodeFrom, nodeTo, poseMeasurement, information)
+                edge = Edge(Type, nodeFrom,nodeTo, poseMeasurement, information)
                 edges.append(edge)
 
-                if initial_b_guess:
-                    initial_bearing_guess(nodes, nodeFrom, nodeTo, nodeTypes, poseMeasurement, lm_status)
+                x_b = nodes[nodeFrom]
+                z_ij = poseMeasurement
+                
+                lm_status.update(dict([(nodeTo, False)]))
+                
+                for id, status in lm_status.items():
+                    if id == nodeTo and status == False:
+                        
+                        #calcguess
+                        lambdadistx = 1
+                        lambdadisty = 1
+                        xguess = x_b[0]+lambdadistx*np.cos(wrap2pi(x_b[2]+z_ij))
+                        yguess = x_b[1]+lambdadisty*np.sin(wrap2pi(x_b[2]+z_ij))
+                        
+                        nodeType = 'VXY'
+                        nodeId = nodeTo
+
+                        landmark = np.array([xguess,yguess],dtype=np.float64)
+
+                        nodes[nodeId] = landmark
+                        nodeTypes[nodeId] = nodeType
+                        lm_status[nodeTo] = True
+                
             else: 
                 print("Error, edge or vertex not defined")
-        
+    
+              
     lut = {}
     x = []
     offset = 0
@@ -125,19 +143,7 @@ def load_g2o_graph(filename, noBearing=True):#, firstMeas=True):
         offset = offset + len(nodes[nodeId])
         x.append(nodes[nodeId])
     x = np.concatenate(x, axis=0)
-
-    if initial_qualified_guess:
-        qualified_guess(edges, lut, x, nodes, nodeTypes, least_squares=True, triangulation=False)
-
-    lut = {}
-    x = []
-    offset = 0
-    for nodeId in nodes:
-        lut.update({nodeId: offset})
-        offset = offset + len(nodes[nodeId])
-        x.append(nodes[nodeId])
-    x = np.concatenate(x, axis=0)
-
+    
     # collect nodes, edges and lookup in graph structure
     from run_slam import Graph
     
@@ -145,78 +151,6 @@ def load_g2o_graph(filename, noBearing=True):#, firstMeas=True):
     
     print('Loaded graph with {} nodes and {} edges'.format(
         len(graph.nodes), len(graph.edges)))
-    print('\n')
-
+    
     return graph
 
-
-def qualified_guess(edges, lut, x, nodes, nodeTypes, least_squares: bool, triangulation: bool):
-    
-    if least_squares:
-        triangulation = False
-    if triangulation:
-        least_squares = False
-
-    ls = LS()
-    tri = TRI()
-    mem = defaultdict(list)
-
-    for e in edges:
-        if e.Type == 'B':
-            
-            _nodePose = e.nodeFrom
-            _nodeLm = e.nodeTo
-        
-            fromIdx = lut[_nodePose]
-            x_b = x[fromIdx:fromIdx+3] # Robot pose
-            z_ij = e.poseMeasurement # Bearing measurement
-
-            _meas = [x_b[0], x_b[1], x_b[2], z_ij]
-            mem[_nodeLm].append(_meas)
-
-    for ID, meas in mem.items():
-
-        m = np.vstack(meas)
-        Xr = m[:,0:3]
-        z_list = list(m[:,3])
-        
-        if len(z_list) > 5:
-            if least_squares:
-                Xl = ls.least_squares_klines(Xr, z_list)  # Computing least squares best guess
-            elif triangulation:
-                Xl = tri.triangulation(Xr, z_list) # Computing triangulation best guess
-
-            landmark = np.array([Xl[0,0], Xl[1,0]], dtype=np.float64)
-
-            nodeType = 'VXY'
-            nodeId = ID
-            nodes[nodeId] = landmark
-            nodeTypes[nodeId] = nodeType
-
-        del m
-
-
-def initial_bearing_guess(nodes, nodeFrom, nodeTo, nodeTypes, poseMeasurement, lm_status):
-
-    x_b = nodes[nodeFrom]
-    z_ij = poseMeasurement
-
-    lm_status.update(dict([(nodeTo, False)]))
-  
-    for id, status in lm_status.items():
-        if id == nodeTo and status == False:
-            
-
-            lambdadistx = 5
-            lambdadisty = 5
-            xguess = x_b[0]+lambdadistx*np.cos(wrap2pi(x_b[2]+z_ij))
-            yguess = x_b[1]+lambdadisty*np.sin(wrap2pi(x_b[2]+z_ij))
-
-            nodeType = 'VXY'
-            nodeId = nodeTo
-            landmark = np.array([xguess,yguess],dtype=np.float64)  
-            nodes[nodeId] = landmark
-            nodeTypes[nodeId] = nodeType
-            lm_status[nodeTo] = True
-        
-        

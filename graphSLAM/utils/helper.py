@@ -1,4 +1,8 @@
 import numpy as np
+import math
+import pandas as pd
+import matplotlib.pyplot as plt
+from collections import Counter
 
 def get_poses_landmarks(graph):
 
@@ -23,6 +27,7 @@ def get_poses_landmarks(graph):
             gps.append(gp)
 
     return poses, landmarks, gps
+     
     
 def vec2trans(pose):
 
@@ -38,7 +43,7 @@ def trans2vec(T):
 
     x = T[0,2]
     y = T[1,2]
-    theta = np.arctan2(T[1,0],
+    theta = math.atan2(T[1,0],
                        T[0,0])
     vec = np.array([x,y,theta],dtype=np.float64)
 
@@ -95,13 +100,13 @@ def RMSE(predicted, actual):
 def calc_gradient_hessian(A,B,information,error, edgetype: str):
     
     if edgetype == 'P':
-        b_i = np.dot(np.dot(A.T,information), error).reshape(3,1)
-        b_j = np.dot(np.dot(B.T,information), error).reshape(3,1)
-
+        b_i = np.dot(np.dot(A.T,information), error)
+        b_j = np.dot(np.dot(B.T,information), error)
+        
     else:
         
-        b_i = np.dot(np.dot(A.T,information), error).reshape(3,1)
-        b_j = np.dot(np.dot(B.T,information), error).reshape(2,1)
+        b_i = np.dot(np.dot(A.T,information), error)
+        b_j = np.dot(np.dot(B.T,information), error)
 
 
     H_ii = np.dot(np.dot(A.T,information), A) 
@@ -145,3 +150,21 @@ def printPrincipalDiagonal(mat, n):
             if (i == j):
                 print(mat[i][j], end = ", ")
     print()
+
+def colors():
+    CB91_Blue = "#2CBDFE"
+    CB91_Green = "#47DBCD"
+    CB91_Pink = "#F3A0F2"
+    CB91_Purple = "#9D2EC5"
+    CB91_Violet = "#661D98"
+    CB91_Amber = "#F5B14C"
+    color_list = [
+        CB91_Blue,
+        CB91_Pink,
+        CB91_Green,
+        CB91_Amber,
+        CB91_Purple,
+        CB91_Violet,
+    ]
+
+    return color_list
