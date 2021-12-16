@@ -69,7 +69,6 @@ class g2o:
         temp_x = np.asfarray(odometry[0]); temp_y = np.asfarray(odometry[1]); temp_th = np.asfarray(odometry[2])
         loaded_route = [[pose_x, pose_y, pose_th] for pose_x, pose_y, pose_th in zip(temp_x, temp_y, temp_th)]
 
-        # full_route = do_rom_splines(np.asfarray(loaded_route))
         temp_x1, temp_y1, temp_th1 = zip(*loaded_route)
         reduced_path = reduce_dimensions(np.array([temp_x1, temp_y1, temp_th1]), 'half')
 

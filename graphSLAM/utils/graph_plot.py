@@ -64,7 +64,7 @@ def graph_plot(graph, animate = False, poseEdgesPlot = True, landmarkEdgesPlot =
             gpsEdgesTo.append(graph.x[toIdx:toIdx+2]) 
             
 
-    if len(poses) > 0:
+    if len(poses) > 0 and edge.Type == 'P':
         poseEdgesFrom = np.stack(poseEdgesFrom, axis = 0)
         poseEdgesTo = np.stack(poseEdgesTo, axis = 0)
 

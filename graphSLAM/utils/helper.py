@@ -1,4 +1,5 @@
 import numpy as np
+import math
 
 def get_poses_landmarks(graph):
 
@@ -38,7 +39,7 @@ def trans2vec(T):
 
     x = T[0,2]
     y = T[1,2]
-    theta = np.arctan2(T[1,0],
+    theta = math.atan2(T[1,0],
                        T[0,0])
     vec = np.array([x,y,theta],dtype=np.float64)
 

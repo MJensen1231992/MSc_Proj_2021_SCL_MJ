@@ -1,6 +1,8 @@
 from types import new_class
 import numpy as np
 from numpy.linalg import matrix_rank
+import scipy
+from scipy import sparse
 from scipy.sparse import csr_matrix
 from scipy.sparse.linalg import spsolve
 from scipy import linalg
@@ -24,7 +26,7 @@ def information_matrix(graph):
 def linearize_solve(graph, lambdaH: float = 1.0, needToAddPrior=True, dcs=True):
     dcsp_arr = []
     dcsb_arr = []
-    phi = 0.2
+    phi = 1
     H, b = information_matrix(graph)
     
     
@@ -40,7 +42,7 @@ def linearize_solve(graph, lambdaH: float = 1.0, needToAddPrior=True, dcs=True):
             z_ij = edge.poseMeasurement
             omega_ij = edge.information
 
-            error , A, B = pose_pose_constraints(x_i, x_j, z_ij)
+            error, A, B = pose_pose_constraints(x_i, x_j, z_ij)
             #iter_error = iterative_global_poseerror(x_i, x_j, z_ij) check floating point diff 
 
             #print(f"error:{error} and itererror{iter_error}")
@@ -52,7 +54,7 @@ def linearize_solve(graph, lambdaH: float = 1.0, needToAddPrior=True, dcs=True):
             #print(f"poseError:\n{error}\npose A:\n{A}\npose B:\n{B}\n")
             #print(f"prior:{needToAddPrior}")
             if needToAddPrior: #May need to add prior to fix initial location!
-                H[fromIdx:fromIdx + 3, fromIdx:fromIdx + 3] = H[fromIdx:fromIdx + 3, fromIdx:fromIdx + 3] + 10 * np.eye(3)
+                H[fromIdx:fromIdx + 3, fromIdx:fromIdx + 3] = H[fromIdx:fromIdx + 3, fromIdx:fromIdx + 3] + 10e6 * np.eye(3)
                 needToAddPrior = False
 
             b_i, b_j, H_ii, H_ij, H_ji, H_jj = calc_gradient_hessian(A,B,omega_ij, error, edgetype = 'P')
@@ -76,7 +78,7 @@ def linearize_solve(graph, lambdaH: float = 1.0, needToAddPrior=True, dcs=True):
 
                 x_j = graph.x[toIdx:toIdx+2]
 
-                error , A, B = pose_landmark_constraints(x_i, x_j, z_ij)
+                error, A, B = pose_landmark_constraints(x_i, x_j, z_ij)
 
                 if dcs:
                    s_ij = dynamic_covariance_scaling(error, phi)
@@ -168,7 +170,6 @@ def linearize_solve(graph, lambdaH: float = 1.0, needToAddPrior=True, dcs=True):
             
     
     H_damp = (H+lambdaH*np.eye(H.shape[0]))
-    
     H_sparse = csr_matrix(H_damp)
     sparse_dxstar = spsolve(H_sparse,-b)
     dxstar_squeeze = sparse_dxstar.squeeze()
@@ -201,10 +202,10 @@ def pose_pose_constraints(xi,xj,zij):
     #Error functions from linearization
     e_xy = np.dot(np.dot(R_ij.T, R_i.T), t_j-t_i)-np.dot(R_ij.T, t_ij)
     e_ang = wrap2pi(wrap2pi(theta_j-theta_i)-theta_ij)
-    #print(f"angle pose error:\n{e_ang}\n")
     e_full = np.vstack((e_xy,e_ang))
 
     #Jacobian of e_ij wrt. x_i
+    # 3x3 matrix 
     A_11 = np.dot(-R_ij.T,R_i.T)
     A_12 = np.dot(np.dot(R_ij.T, dR_i.T), t_j-t_i)
     A_21_22 = np.array([0,0,-1])
@@ -212,6 +213,7 @@ def pose_pose_constraints(xi,xj,zij):
 
 
     #Jacobian of e_ij wrt. x_j
+    # 3x3 matrix
     B_11 = np.dot(R_ij.T,R_i.T)
     B_12 = np.zeros((2,1),dtype=np.float64)
     B_21_22 = np.array([0,0,1])

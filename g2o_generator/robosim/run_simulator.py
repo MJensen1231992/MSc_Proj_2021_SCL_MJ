@@ -14,7 +14,7 @@ landmarksFile = './g2o_generator/GIS_Extraction/landmarks/landmarks_w_types.json
 route_name = 'brbr'
 
 # Variables
-FOV = 45 # Degrees
+FOV = 120 # Degrees
 LM_RANGE = 20 # Meters
 ODO_RANGE = 2 # Meters
 set_xlim = [574714, 575168]

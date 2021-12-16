@@ -10,7 +10,7 @@ from lib.utility import *
 
 class world:
     def __init__(self, OSM_polygons: str, OSM_features: str, landmarks: str, set_xlim: list, set_ylim: list, save_path: bool = False,
-                 load_path: bool = False, route_name: str = 'Aarhus_path1.json', GNSS_frequency: int = 10):
+                 load_path: bool = False, route_name: str = 'brbr.json', GNSS_frequency: int = 10):
         """
         csv_info takes in csv file for landmarks and csv file for polygons
         """

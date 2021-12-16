@@ -22,14 +22,14 @@ class Graph:
 class G2O:
     def __init__(self, filename):
         
-        self.graph = load_g2o_graph(filename,noBearing=False)
+        self.graph = load_g2o_graph(filename, noBearing=False)
         self.error = compute_global_error(self.graph)
         
 
 
 def graph_slam_run_algorithm(graph, numIter):
 
-    tol = 1e-100 # If error difference is smaller than tolerance it breaks.
+    tol = 0.1 # If error difference is smaller than tolerance it breaks.
     norm_dX_all = []
     err_opt_f = []
     err_diff = []
@@ -38,7 +38,7 @@ def graph_slam_run_algorithm(graph, numIter):
     e_land = []
     e_gps = []
     
-    graph_plot(graph,landmarkEdgesPlot=True)
+    graph_plot(graph, landmarkEdgesPlot=True)
     
     lambdaH = 1
     for i in trange(numIter, position=0, leave=True, desc='Running SLAM algorithm'):
@@ -72,7 +72,7 @@ def graph_slam_run_algorithm(graph, numIter):
                 lambdaH /= 2
                 #print(f"lambda is: {lambdaH}")
             
-        diff = np.append(diff,err_diff)
+        diff = np.append(diff, err_diff)
         #print(graph.x)
         #if i % 1 == 0:
         #    graph_plot(graph,animate=False)
@@ -82,12 +82,12 @@ def graph_slam_run_algorithm(graph, numIter):
         print(f"|dx| for step {i} : {norm_dX}\n")
         norm_dX_all.append(norm_dX)
 
-        if i >=1 and np.abs(norm_dX_all[i]-norm_dX_all[i-1]) < tol: 
+        if i >=1 and np.abs(norm_dX_all[i]-norm_dX_all[i-1]) < tol:
             break
     
     
 
-    graph_plot(graph,landmarkEdgesPlot=True)
+    graph_plot(graph, landmarkEdgesPlot=True)
     
     # print(f"error diff array:\n{diff}\n")
     plot_ground_together_noise(g_graph, graph)
@@ -105,12 +105,12 @@ def graph_slam_run_algorithm(graph, numIter):
 if __name__ == '__main__' :
    
     # noise = G2O('graphSLAM/data/giusensonoise.g2o')
-    noise = G2O('graphSLAM/data/noise_20211210-132214.g2o')
+    noise = G2O('graphSLAM/data/noise_20211215-093747.g2o')
     n_graph = noise.graph
     # ground = G2O('graphSLAM/data/giusensoground.g2o')
-    ground = G2O('graphSLAM/data/ground_truth_20211210-132214.g2o')
+    ground = G2O('graphSLAM/data/ground_truth_20211215-093747.g2o')
     g_graph = ground.graph
-    plot_ground_together_noise(g_graph,n_graph)
+    plot_ground_together_noise(g_graph, n_graph)
     #Rmse_pre =RMSE(n_graph.x, g_graph.x)
     #print(f"print RMSE PRE: {Rmse_pre}")
     # e,_,_,_ = noise.error
@@ -120,5 +120,5 @@ if __name__ == '__main__' :
     #plt.show()
     #error_before, _ , _ , _ = compute_global_error(n_graph)
 
-    dx = graph_slam_run_algorithm(n_graph,20)
+    dx = graph_slam_run_algorithm(n_graph,100)
 
