@@ -1,12 +1,11 @@
 from math import inf
 import numpy as np
-from itertools import combinations
-from lib.least_squares import LeastSquares as LS
-from lib.triangulation import Triangulation as TRI
+from utils.lib.least_squares import LeastSquares as LS
+from utils.lib.triangulation import Triangulation as TRI
 from collections import namedtuple, defaultdict
-from helper import from_uppertri_to_full, wrap2pi
+from utils.helper import from_uppertri_to_full, wrap2pi
 
-def load_g2o_graph(filename, noBearing=True):#, firstMeas=True):
+def load_g2o_graph(filename: str, noBearing: bool=True):#, firstMeas=True):
     
     print(f"Loading file: {filename[15:-20]}")
 
@@ -52,20 +51,12 @@ def load_g2o_graph(filename, noBearing=True):#, firstMeas=True):
                 nodeTypes[nodeId] = nodeType
 
             elif data[0] == 'EDGE_SE2':
-                #print('hej P')
-                
                 Type = 'P' # pose type
                 nodeFrom = int(data[1])
                 nodeTo = int(data[2])
                 poseMeasurement = np.array(data[3:6], dtype=np.float64)
                 upperTriangle = np.array(data[6:12], dtype=np.float64)
-                # information = np.array(
-                #     [[upperTriangle[0], upperTriangle[1], upperTriangle[4]],
-                #      [upperTriangle[1], upperTriangle[2], upperTriangle[5]],
-                #      [upperTriangle[4], upperTriangle[5], upperTriangle[3]]]) #Toro
                 information = from_uppertri_to_full(upperTriangle,3)
-                #print(f"shape pose{np.shape(information)}")
-               #print(f"shape pose posemeas{np.shape(poseMeasurement)}")
                 edge = Edge(Type, nodeFrom, nodeTo, poseMeasurement, information)
                 edges.append(edge)
             
@@ -103,7 +94,6 @@ def load_g2o_graph(filename, noBearing=True):#, firstMeas=True):
                 edges.append(edge)
 
             elif data[0] == 'EDGE_SE2_BEARING' or 'EDGE_BEARING_SE2_XY':
-                #print(f"data {data}")
                 Type = 'B' #landmark type
                 nodeFrom = int(data[1])
                 nodeTo = int(data[2])                
@@ -117,50 +107,59 @@ def load_g2o_graph(filename, noBearing=True):#, firstMeas=True):
                     initial_bearing_guess(nodes, nodeFrom, nodeTo, nodeTypes, poseMeasurement, lm_status)
             else: 
                 print("Error, edge or vertex not defined")
-        
-    lut = {}
-    x = []
-    offset = 0
-    for nodeId in nodes:
-        lut.update({nodeId: offset})
-        offset = offset + len(nodes[nodeId])
-        x.append(nodes[nodeId])
-    x = np.concatenate(x, axis=0)
+
+    lut, x = update_info(nodes)
 
     if initial_qualified_guess:
-        qualified_guess(edges, lut, x, nodes, nodeTypes, least_squares=True, triangulation=False, epsilon=50)
+        nodes, nodeTypes, unused_lm = qualified_guess(edges, lut, x, nodes, nodeTypes, least_squares=True, triangulation=False, epsilon=5)
+        # edges = remove_unused_landmark(edges, unused_lm) # For later implementation
+        lut, x = update_info(nodes)
 
-    lut = {}
-    x = []
-    offset = 0
-    for nodeId in nodes:
-        lut.update({nodeId: offset})
-        offset = offset + len(nodes[nodeId])
-        x.append(nodes[nodeId])
-    x = np.concatenate(x, axis=0)
-
-    # collect nodes, edges and lookup in graph structure
     from run_slam import Graph
-    
+
     graph = Graph(x, nodes, edges, lut, nodeTypes)
     
-    print('Loaded graph with {} nodes and {} edges'.format(
-        len(graph.nodes), len(graph.edges)))
+    print('Loaded graph with {} nodes and {} edges'.format(len(graph.nodes), len(graph.edges)))
     print('\n')
 
     return graph
 
+def update_info(nodes):
+
+    lut = {}
+    x = []
+    offset = 0
+    for nodeId in nodes:
+        lut.update({nodeId: offset})
+        offset = offset + len(nodes[nodeId])
+        x.append(nodes[nodeId])
+    x = np.concatenate(x, axis=0)
+
+    return lut, x
+
+def remove_unused_landmark(edges, unused_lm):
+
+    for edge in edges:
+        if edge.Type == 'B':
+
+            for lm_ID in unused_lm:
+                check = True if lm_ID == edge.nodeTo else False
+
+            print(check)
+            print(edge.nodeTo)
+            print(unused_lm)
+
+            if check:
+                edges.remove(edge)
+
+    return edges
 
 def qualified_guess(edges, lut, x, nodes, nodeTypes, least_squares: bool, triangulation: bool, epsilon: float):
-    
-    if least_squares:
-        triangulation = False
-    if triangulation:
-        least_squares = False
 
     ls = LS()
     tri = TRI()
     mem = defaultdict(list)
+    unused_lm = []
     count = 0
 
     for e in edges:
@@ -190,7 +189,7 @@ def qualified_guess(edges, lut, x, nodes, nodeTypes, least_squares: bool, triang
         Xr = m[:,0:3]
         z_list = list(m[:,3])
 
-        if len(z_list) > 0:
+        if len(z_list) > 1: # 2 or more measurements are required for triangulation
             if least_squares:
                 Xl = ls.least_squares_klines(Xr, z_list)  # Computing least squares best guess
             elif triangulation:
@@ -202,8 +201,11 @@ def qualified_guess(edges, lut, x, nodes, nodeTypes, least_squares: bool, triang
             nodeId = ID
             nodes[nodeId] = landmark
             nodeTypes[nodeId] = nodeType
+        else:
+            unused_lm.append(ID)
 
         del m
+    return nodes, nodeTypes, unused_lm
 
 
 def initial_bearing_guess(nodes, nodeFrom, nodeTo, nodeTypes, poseMeasurement, lm_status):
@@ -216,7 +218,6 @@ def initial_bearing_guess(nodes, nodeFrom, nodeTo, nodeTypes, poseMeasurement, l
     for id, status in lm_status.items():
         if id == nodeTo and status == False:
             
-
             lambdadistx = 5
             lambdadisty = 5
             xguess = x_b[0]+lambdadistx*np.cos(wrap2pi(x_b[2]+z_ij))
@@ -228,9 +229,20 @@ def initial_bearing_guess(nodes, nodeFrom, nodeTo, nodeTypes, poseMeasurement, l
             nodes[nodeId] = landmark
             nodeTypes[nodeId] = nodeType
             lm_status[nodeTo] = True
-        
-def check_parallel_lines(p1, z1, p2, z2, epsilon: float=1) -> bool:
 
+def check_parallel_lines(p1, z1, p2, z2, epsilon: float) -> bool:
+    """Checking for parallel bearing measurements
+
+    Args:
+        p1 (vector 3x1): Robot position at time i
+        z1 (float): Bearing measurement at time i
+        p2 (vector 3x1): Robot position at time j
+        z2 (float): Bearing measurement at time j
+        epsilon (float, optional): Threshold value. Parallax criterion. Defaults to 1.
+
+    Returns:
+        bool: True -> lines are parallel, False -> lines are not parallel
+    """
     n1 = wrap2pi(z1+p1[2])
     n2 = wrap2pi(z2+p2[2])
 

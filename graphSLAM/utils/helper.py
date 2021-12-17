@@ -5,6 +5,7 @@ def get_poses_landmarks(graph):
 
     poses = []
     landmarks = []
+    lm_ID = []
     gps = []
     
     for nodeId in graph.nodes:
@@ -18,12 +19,13 @@ def get_poses_landmarks(graph):
         if graph.nodeTypes[nodeId] == 'VXY':
             landmark = graph.x[offset:offset+2]
             landmarks.append(landmark)
+            lm_ID.append(nodeId)
 
         if graph.nodeTypes[nodeId] == 'VGPS':
             gp = graph.x[offset:offset+2]
             gps.append(gp)
 
-    return poses, landmarks, gps
+    return poses, landmarks, lm_ID, gps
     
 def vec2trans(pose):
 

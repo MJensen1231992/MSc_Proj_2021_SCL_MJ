@@ -1,12 +1,19 @@
 import warnings
 import numpy as np
-from linearize_solve import *
-from helper import *
-from error import *
-from graph_plot import *
-from g2o_loader import load_g2o_graph
+import copy
+from utils.linearize_solve import *
+from utils.helper import *
+from utils.error import *
+from utils.graph_plot import *
+from utils.g2o_loader import load_g2o_graph
 from tqdm import trange
 warnings.filterwarnings('ignore')
+
+LAMBDAH = 1
+PHI = 1
+FOV = 120 # Degrees
+LM_RANGE = 15 # Meters
+ODO_RANGE = 2
 
 class Graph: 
     def __init__(self, x, nodes, edges,lut, nodeTypes, withoutBearing=False):
@@ -16,7 +23,6 @@ class Graph:
         self.lut = lut
         self.withoutBearing = withoutBearing
         self.nodeTypes = nodeTypes
-        #self.lambdaH = lambdaH
 
 
 class G2O:
@@ -24,7 +30,6 @@ class G2O:
         
         self.graph = load_g2o_graph(filename, noBearing=False)
         self.error = compute_global_error(self.graph)
-        
 
 
 def graph_slam_run_algorithm(graph, numIter):
@@ -37,24 +42,28 @@ def graph_slam_run_algorithm(graph, numIter):
     e_pose = []
     e_land = []
     e_gps = []
-    
-    graph_plot(graph, landmarkEdgesPlot=True)
-    
-    lambdaH = 1
+    e_bear = []
+
+    graph_plot(graph, figid=1, Label='', landmarkEdgesPlot=True)
+    plt.title('Before optimization')
+    plt.show()
+
+    lambdaH = LAMBDAH
     for i in trange(numIter, position=0, leave=True, desc='Running SLAM algorithm'):
         
         #if i>0:
         old_x = graph.x
         #print(f"OLD X TOP OF FOR LOOP:\n{old_x}\n")
         
-        error_before, err_pose , err_land , err_gps = compute_global_error(graph)
+        error_before, err_pose, err_bearing, err_land , err_gps = compute_global_error(graph)
         #print(f"global error before:\n{error_before}\n")
         err_opt_f.append(error_before)
         e_pose.append(err_pose)
-        e_land.append(err_land)
-        e_gps.append(err_gps)
+        e_bear.append(err_bearing)
+        # e_land.append(err_land)
+        # e_gps.append(err_gps)
 
-        dX, _, _, _ = linearize_solve(graph,lambdaH=lambdaH)
+        dX, _, _, _ = linearize_solve(graph, lambdaH=lambdaH)
         # plt.spy(Hs)
         # plt.show()
         graph.x += dX
@@ -75,7 +84,7 @@ def graph_slam_run_algorithm(graph, numIter):
         diff = np.append(diff, err_diff)
         #print(graph.x)
         #if i % 1 == 0:
-        #    graph_plot(graph,animate=False)
+        #    graph_plot(graph,animate=False)q
         
         norm_dX = np.linalg.norm(dX)
 
@@ -87,18 +96,19 @@ def graph_slam_run_algorithm(graph, numIter):
     
     
 
-    graph_plot(graph, landmarkEdgesPlot=True)
+    graph_plot(graph,figid=3,Label = '')#),landmarkEdgesPlot=True)
+    plt.title('After optimization\n Damping coeff={}, DCS={}, FOV={}'.format(LAMBDAH,PHI,FOV),loc = 'center')
+    graph_plot(pre_graph,figid=4,Label = '')#,landmarkEdgesPlot=True)
+    plt.title('Before optimization')
+    plot_ground_together_noise(g_graph, graph,figid=5)
+    plt.title('After optimization\n Damping coeff={}, DCS={}, FOV={}'.format(LAMBDAH,PHI,FOV),loc = 'center')
+    plot_ground_together_noise(g_graph, pre_graph,figid=6)
+    plt.title('Before optimization')
+    # plt.legend('post')#
+    plt.show()
+    # RMSE(graph.x, g_graph.x)
     
-    # print(f"error diff array:\n{diff}\n")
-    plot_ground_together_noise(g_graph, graph)
-   
-    # #rmse_post = RMSE(graph.x, g_graph.x)
-    # #print(f"print RMSE Post: {rmse_post}")
-    # plt.plot(err_opt_f)
-    # plt.show()
-   # plot_errors(e_pose,e_land,e_gps)
-    #globalerrorpost,_,_,_=compute_global_error(graph)
-    #print(f"Global error after SLAM:\n{globalerrorpost}\n")
+    plot_errors(err_opt_f, e_pose, e_bear, e_land, e_gps)
     return norm_dX_all
 
 
@@ -110,7 +120,10 @@ if __name__ == '__main__' :
     # ground = G2O('graphSLAM/data/giusensoground.g2o')
     ground = G2O('graphSLAM/data/ground_truth_20211215-093747.g2o')
     g_graph = ground.graph
-    plot_ground_together_noise(g_graph, n_graph)
+
+    pre_graph = copy.deepcopy(n_graph)
+
+    plot_ground_together_noise(g_graph, n_graph, figid=4)
     #Rmse_pre =RMSE(n_graph.x, g_graph.x)
     #print(f"print RMSE PRE: {Rmse_pre}")
     # e,_,_,_ = noise.error

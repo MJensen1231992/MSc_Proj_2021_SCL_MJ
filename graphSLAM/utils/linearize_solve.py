@@ -1,15 +1,13 @@
 from types import new_class
 import numpy as np
 from numpy.linalg import matrix_rank
-import scipy
-from scipy import sparse
 from scipy.sparse import csr_matrix
 from scipy.sparse.linalg import spsolve
 from scipy import linalg
 from scipy.sparse.linalg import svds, eigs
 from run_slam import *
-from helper import *
-from error import *
+from utils.helper import *
+from utils.error import *
 
 def information_matrix(graph):
 
@@ -43,17 +41,12 @@ def linearize_solve(graph, lambdaH: float = 1.0, needToAddPrior=True, dcs=True):
             omega_ij = edge.information
 
             error, A, B = pose_pose_constraints(x_i, x_j, z_ij)
-            #iter_error = iterative_global_poseerror(x_i, x_j, z_ij) check floating point diff 
-
-            #print(f"error:{error} and itererror{iter_error}")
 
             if dcs:
                 s_ij = dynamic_covariance_scaling(error, phi)
                 omega_ij = (s_ij**2)*omega_ij
-               # dcsp_arr.append(s_ij)
-            #print(f"poseError:\n{error}\npose A:\n{A}\npose B:\n{B}\n")
-            #print(f"prior:{needToAddPrior}")
-            if needToAddPrior: #May need to add prior to fix initial location!
+
+            if needToAddPrior:
                 H[fromIdx:fromIdx + 3, fromIdx:fromIdx + 3] = H[fromIdx:fromIdx + 3, fromIdx:fromIdx + 3] + 10e6 * np.eye(3)
                 needToAddPrior = False
 
@@ -141,30 +134,15 @@ def linearize_solve(graph, lambdaH: float = 1.0, needToAddPrior=True, dcs=True):
 
             z_ij = edge.poseMeasurement # brug meas til at regne x,y punkt ud fra least squares, eller initial gæt (a+t*n) måske r + cos og sin(h+theta)
             omega_ij = edge.information
-            #print(f"Robot pose from(linearize func):\n{x_b}\nBearing(linearize func)\n{z_ij}\n")
-            
-
-            #b_gx = np.array([xguess,yguess])#,dtype=np.float64)
-            #print(f"Landmark guess: {b_g}\n")
-
-            # print(f"shape GIS:\n{np.shape(b_g)}\n")
-            # print(f"GIS\n{b_g}\n")
-            # print(f"guess landmark\n{b_gx}\n")
-            # print(f"landmark shape guess:\n{np.shape(b_gx)}\n")
             
             error, A, B = pose_landmark_bearing_only_constraints(x_b, b_g, z_ij)
             
-            #print(f"error:\n{error}\n")
-            # print(f"x_b:\n{x_b}\nb:\n{b_g}\nmeas:\n{z_ij}\nbearingerror:\n{error}\n\ninfo:\n{omega_ij}\nbearingerror:\n{error}\nbearing A:\n{A}\nbearing b:\n{B}\n")
-            #print(f"bearingerror:\n{error}\nbearing A:\n{A}\nbearing b:\n{B}\ninfo:\n{omega_ij}\n")
             if dcs:
                s_ij = dynamic_covariance_scaling(error, phi)
                omega_ij = (s_ij**2)*omega_ij
-               #dcsp_arr.append(s_ij)
-               #print(f"hej b{omega_ij}")
             
             b_i, b_j, H_ii, H_ij, H_ji, H_jj = calc_gradient_hessian(A, B, omega_ij, error, edgetype='B')
-            #print(f"H: \n{H_ij}\nbi: \n{b_i}\n bj: \n{b_j}")
+
             #adding them to H and b
             H, b = build_gradient_hessian(b_i, b_j, H_ii, H_ij, H_ji, H_jj,H,b, fromIdx, toIdx, edgetype='B') 
             
@@ -238,20 +216,13 @@ def pose_landmark_bearing_only_constraints(x,l,z):
     
     r_l_trans = (x_j-t_i)#+theta_i))
     r_l_angle = math.atan2(r_l_trans[1],r_l_trans[0])
-    #testangle = wrap2pi(z-r_l_angle)
 
     e_full = wrap2pi(wrap2pi((r_l_angle-theta_i))-z_bearing)
-    #print(f"Bearing:\n{z_bearing}\nlandmark:\n{x_j}\nrobot trans:\n{t_i}\nheading:\n{theta_i}\nrobot landmark trans:\n{r_l_trans}\nrobot landmark angle:\n{r_l_angle}\n")
-    #print(f"e_full bearing:\n{e_full}\n")
-   # r = ((t_i[0]-x_j[0])**2+(t_i[1]-x_j[1])**2) # distance between poses squared, denominator of jacobians
 
     r = ((x_j[0]-t_i[0])**2+(x_j[1]-t_i[1])**2)
     A_ij = np.hstack((-(t_i[1]-x_j[1])/r, (t_i[0]-x_j[0])/r, -1.0)).reshape(1,3)
     B_ij = np.hstack(((t_i[1]-x_j[1])/r,-(t_i[0]-x_j[0])/r)).reshape(1,2)
 
-    #A_ij = np.hstack(((x_j[1]-t_i[1])/r, (x_j[0]-t_i[0])/r, -1.0)).reshape(1,3)
-    #B_ij = np.hstack(((t_i[1]-x_j[1])/r,(t_i[0]-x_j[0])/r)).reshape(1,2)
-    #print(f"Aij:\n{A_ij}\nAdeans:\n{A_ijj}\nBij:\n{B_ij}\nBdeans:\n{B_ijj}\nrobotpose:\n{t_i}\nlandmark pose:\n{x_j}\n")
     return e_full, A_ij, B_ij
 
 def pose_landmark_bearing_constraints(x,l,z):
@@ -299,8 +270,6 @@ def pose_landmark_constraints(x, l, z):
 
     e_full = np.dot(R_i.T, x_l-t_i) - z_il #landmarkslam freiburg pdf
     
-    #bearing only
-    #e_bearing = atan2((x_l[x]-ti[y],x_l[x]-ti[x]) - robot_orientation-z_il
     #Jacobian A, B
     #Checked in maple ! nice
     A_21_22= -R_i.T
