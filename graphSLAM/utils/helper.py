@@ -8,6 +8,7 @@ def get_poses_landmarks(graph):
 
     poses = []
     landmarks = []
+    lm_ID = []
     gps = []
     
     for nodeId in graph.nodes:
@@ -21,12 +22,13 @@ def get_poses_landmarks(graph):
         if graph.nodeTypes[nodeId] == 'VXY':
             landmark = graph.x[offset:offset+2]
             landmarks.append(landmark)
+            lm_ID.append(nodeId)
 
         if graph.nodeTypes[nodeId] == 'VGPS':
             gp = graph.x[offset:offset+2]
             gps.append(gp)
 
-    return poses, landmarks, gps
+    return poses, landmarks, lm_ID, gps
      
     
 def vec2trans(pose):
@@ -93,9 +95,34 @@ def wrap2pi(angle):
     
     return angle
 
-def RMSE(predicted, actual):
-    return np.square(np.subtract(actual,predicted)).mean() 
+def RMSE(actual, predicted):
 
+    gposes, gland, _ = get_poses_landmarks(actual)
+    gposes = np.stack(gposes, axis=0)
+
+    nposes, nland, _ = get_poses_landmarks(predicted)
+    nposes = np.stack(nposes, axis=0)
+
+    rms_pose_error = np.square(np.subtract(gposes,nposes)).mean() 
+    rms_land_error = np.square(np.subtract(gland,nland)).mean() 
+    print(f"Root mean square error poses:{rms_pose_error}")
+    print(f"Root mean square error landmark:{rms_land_error}")
+
+    return
+
+def var_med_odo(ground_graph, noise_graph):
+
+    gposes, _, _ = get_poses_landmarks(ground_graph)
+    gposes = np.stack(gposes, axis=0)
+
+    nposes, _, _ = get_poses_landmarks(noise_graph)
+    nposes = np.stack(nposes, axis=0)
+    
+    diff = gposes - nposes
+
+    var = np.var(diff, axis=0)
+    med = np.median(diff,axis=0)
+    return var, med 
 
 def calc_gradient_hessian(A,B,information,error, edgetype: str):
     
@@ -150,21 +177,3 @@ def printPrincipalDiagonal(mat, n):
             if (i == j):
                 print(mat[i][j], end = ", ")
     print()
-
-def colors():
-    CB91_Blue = "#2CBDFE"
-    CB91_Green = "#47DBCD"
-    CB91_Pink = "#F3A0F2"
-    CB91_Purple = "#9D2EC5"
-    CB91_Violet = "#661D98"
-    CB91_Amber = "#F5B14C"
-    color_list = [
-        CB91_Blue,
-        CB91_Pink,
-        CB91_Green,
-        CB91_Amber,
-        CB91_Purple,
-        CB91_Violet,
-    ]
-
-    return color_list

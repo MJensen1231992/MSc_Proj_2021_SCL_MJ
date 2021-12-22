@@ -1,6 +1,6 @@
 from helper import wrap2pi
 import numpy as np
-
+import matplotlib.pyplot as plt
 
 # a = np.array([ 1, 2, 3])
 # b = [ 4, 5, 6]
@@ -8,10 +8,7 @@ import numpy as np
 
 
 # c =np.linalg.norm(a)+np.linalg.norm(b)
-# a1 = [2, 3, 4]
-# b1 = [5, 6, 7]
-# a2 = [3, 4, 5]*1000
-# b2= [6, 7, 8]*1000
+
 
 # #print(np.linalg.norm(a1+b1))
 # k = np.linalg.norm(a+b)
@@ -38,19 +35,30 @@ import numpy as np
 # print(np.linalg.norm([ 71.7565695,  137.72204542,   6.64420391]))
 
 
-headingA = -9.46
-headingB = -41.48
+mean =[0,0]
 
-measA = 162.18
-measB = 194.35-360
+# b = np.array([[ 0.,         0.,          1.52578446],
+#  [-0.49545915,  1.31452831,  1.55420751],
+#   [-0.49545915,  1.31452831,  1.55420751]])
 
-print(measB)
+# print(b[:, :2])
+
+# x,y = np.random.multivariate_normal(mean,cov, 10000).T
+# plt.hist2d(x,y,bins=30, cmap='Blues')
+# plt.show()
+
+# b = np.asfarray([2,3,40,10])
+# Id = 2
 
 
-A_bear =  headingA+measA
-B_bear =  headingB+measB
+# print(Id == np.any(b))
 
+a1 = np.array([9, 1, 24])
+b1 = np.array([5, 6, 7])
+a2 = [3, 4, 5]
+b2 = [6, 7, 8]
 
-print(np.abs(A_bear-B_bear)-360)
-
-print(0.03*180/np.pi)
+c = a1-b1
+print(c)
+print(np.var(c))
+print(np.median(c))
