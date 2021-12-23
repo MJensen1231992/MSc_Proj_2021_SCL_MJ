@@ -31,7 +31,8 @@ set_ylim = [6222368, 6222683]
 # Making robot path
 show = cw.world(filenamePoints, filenamePoly, landmarksFile, route_name=route_name, save_path=True,\
                 load_path=False, set_xlim=set_xlim, set_ylim=set_ylim)
-odometry_file = show.make_robot_path()
+# odometry_file = show.make_robot_path()
+odometry_file = 'g2o_generator/robosim/data/robopath/thegoodone.json'
 
 # Generating g2o file
 genG2O = gg.g2o(odometry_file, filenamePoints, filenamePoly, landmarksFile, LM_RANGE, ODO_RANGE, FOV)

@@ -45,7 +45,7 @@ class g2o:
                              "none": -1}
 
         std_gnss_x = 0.7; std_gnss_y = 0.7
-        std_odo_x = 0.1; std_odo_y = 0.2; std_odo_th = deg2rad(0.01); mu_bias = 0.5
+        std_odo_x = 0.1; std_odo_y = 0.2; std_odo_th = deg2rad(0.1); mu_bias = 0.8
         std_lm_x = 0.7; std_lm_y = 0.7; self.std_lm_th = deg2rad(1)
 
         # Information matrices: 
@@ -54,12 +54,12 @@ class g2o:
         # Landmarks(Specific for each landmark type)
         self.H_odo = np.linalg.inv(np.array([[std_odo_x**2, 0, 0],
                                              [0, std_odo_y**2, 0],
-                                             [0, 0, 0.01**2]]))
+                                             [0, 0, 0.08**2]]))
         self.H_gnss = np.linalg.inv(np.array([[std_gnss_x**2, 0],
                                               [0, std_gnss_y**2]]))
         self.H_xy = np.linalg.inv(np.array([[std_lm_x**2, 0, 0],
                                             [0, std_lm_y**2, 0],
-                                            [0, 0, 0.01**2]]))
+                                            [0, 0, 0.03**2]]))
         # self.H_xy = np.linalg.inv(np.array([[std_lm_x**2, 0, 0],
         #                                     [0, std_lm_y**2, 0],
         #                                     [0, 0, np.sin(self.std_lm_th**2)]]))
@@ -76,6 +76,7 @@ class g2o:
         self.x, self.y, self.th = zip(*np.asarray_chkfinite(reduced_path, dtype=np.float64))
         self.xN, self.yN, self.thN = addNoise(self.x, self.y, self.th, std_odo_x, std_odo_y, std_odo_th, mu_bias)
         
+
         print("Distance traveled: {:.0f} m".format(distance_traveled(self.x,self.y)))
 
         # GPS on ground truth
@@ -154,8 +155,8 @@ class g2o:
         for pose_id in range(len(self.x)):
 
             curr_pose = np.array([[x[pose_id]], [y[pose_id]], [theta[pose_id]]])
-
-            for (key, gt_landmark), (_, N_landmark)in zip(gt_landmarks.items(), N_landmarks.items()):
+                                                            # ground truth       noisy landmarks
+            for (key, gt_landmark), (_, N_landmark)in zip(gt_landmarks.items(), gt_landmarks.items()):
                 for (pos, posN) in zip(gt_landmark, N_landmark):
 
                     d_landmark = np.linalg.norm(curr_pose[0:2,:].T - np.array(pos, dtype=np.float64))

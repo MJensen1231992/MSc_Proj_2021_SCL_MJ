@@ -22,10 +22,10 @@ def load_g2o_graph(filename: str, noBearing: bool=True):#, firstMeas=True):
  
     with open(filename, 'r') as file:
         for line in file:
+           
             data = line.split() # splits the columns
             
             if data[0] == 'VERTEX_SE2':
-                
                 nodeType = 'VSE2'
                 nodeId = int(data[1])
                 pose = np.array(data[2:5],dtype=np.float64)
@@ -62,7 +62,7 @@ def load_g2o_graph(filename: str, noBearing: bool=True):#, firstMeas=True):
             
 
             elif data[0] == 'EDGE_SE2_XY':
-                
+                continue
                 Type = 'L' #landmark type
                 nodeFrom = int(data[1])
                 nodeTo = int(data[2])
@@ -93,7 +93,7 @@ def load_g2o_graph(filename: str, noBearing: bool=True):#, firstMeas=True):
                 edge = Edge(Type, nodeFrom,nodeTo, poseMeasurement, information)
                 edges.append(edge)
 
-            elif data[0] == 'EDGE_SE2_BEARING' or 'EDGE_BEARING_SE2_XY':
+            elif data[0] == 'EDGE_BEARING_SE2_XY' or 'EDGE_SE2_BEARING':
                 Type = 'B' #landmark type
                 nodeFrom = int(data[1])
                 nodeTo = int(data[2])                
@@ -111,7 +111,7 @@ def load_g2o_graph(filename: str, noBearing: bool=True):#, firstMeas=True):
     lut, x = update_info(nodes)
 
     if initial_qualified_guess:
-        nodes, nodeTypes, unused_lm = qualified_guess(edges, lut, x, nodes, nodeTypes, least_squares=True, triangulation=False, epsilon=5)
+        nodes, nodeTypes, unused_lm = qualified_guess(edges, lut, x, nodes, nodeTypes, least_squares=True, triangulation=False, epsilon=0.0)
         # edges = remove_unused_landmark(edges, unused_lm) # For later implementation
         lut, x = update_info(nodes)
 
@@ -144,10 +144,6 @@ def remove_unused_landmark(edges, unused_lm):
 
             for lm_ID in unused_lm:
                 check = True if lm_ID == edge.nodeTo else False
-
-            print(check)
-            print(edge.nodeTo)
-            print(unused_lm)
 
             if check:
                 edges.remove(edge)
@@ -189,7 +185,7 @@ def qualified_guess(edges, lut, x, nodes, nodeTypes, least_squares: bool, triang
         Xr = m[:,0:3]
         z_list = list(m[:,3])
 
-        if len(z_list) > 1: # 2 or more measurements are required for triangulation
+        if len(z_list) > 0: # 2 or more measurements are required for triangulation
             if least_squares:
                 Xl = ls.least_squares_klines(Xr, z_list)  # Computing least squares best guess
             elif triangulation:

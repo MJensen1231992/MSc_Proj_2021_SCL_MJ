@@ -9,10 +9,10 @@ from utils.g2o_loader import load_g2o_graph
 from tqdm import trange
 warnings.filterwarnings('ignore')
 
-LAMBDAH = 1
+LAMBDAH = 0.1
 PHI = 1
 FOV = 120 # Degrees
-LM_RANGE = 15 # Meters
+LM_RANGE = 20 # Meters
 ODO_RANGE = 2
 
 class Graph: 
@@ -34,7 +34,7 @@ class G2O:
 
 def graph_slam_run_algorithm(graph, numIter):
 
-    tol = 0.1 # If error difference is smaller than tolerance it breaks.
+    tol = 0 # If error difference is smaller than tolerance it breaks.
     norm_dX_all = []
     err_opt_f = []
     err_diff = []
@@ -78,7 +78,7 @@ def graph_slam_run_algorithm(graph, numIter):
                 #print("Error is larger than previous iteration")
                 #print(f"lambda is: {lambdaH}")
             else:
-                lambdaH /= 2
+                lambdaH /= 4
                 #print(f"lambda is: {lambdaH}")
             
         diff = np.append(diff, err_diff)
@@ -115,10 +115,10 @@ def graph_slam_run_algorithm(graph, numIter):
 if __name__ == '__main__' :
    
     # noise = G2O('graphSLAM/data/giusensonoise.g2o')
-    noise = G2O('graphSLAM/data/noise_20211215-093747.g2o')
+    noise = G2O('graphSLAM/data/internet.g2o')
     n_graph = noise.graph
-    # ground = G2O('graphSLAM/data/giusensoground.g2o')
-    ground = G2O('graphSLAM/data/ground_truth_20211215-093747.g2o')
+    # # ground = G2O('graphSLAM/data/giusensoground.g2o')
+    ground = G2O('graphSLAM/data/internet_gt.g2o')
     g_graph = ground.graph
 
     pre_graph = copy.deepcopy(n_graph)
@@ -133,5 +133,6 @@ if __name__ == '__main__' :
     #plt.show()
     #error_before, _ , _ , _ = compute_global_error(n_graph)
 
-    dx = graph_slam_run_algorithm(n_graph,100)
+    dx = graph_slam_run_algorithm(n_graph,20)
+    
 

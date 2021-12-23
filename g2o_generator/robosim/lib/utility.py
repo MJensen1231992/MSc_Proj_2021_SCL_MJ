@@ -232,6 +232,62 @@ def addNoise(x, y, th, std_x, std_y, std_th, mu):
 
     return xN, yN, tN
 
+def addNoise_thrun(x, y, th, std_x, std_y, std_th, mu):
+
+    """Takes in odometry values and adding noise in relative pose
+
+    Returns:
+        xN, yN, thN: The corresponding odometry values with added noise
+    """    
+    xN = np.zeros(len(x)); yN = np.zeros(len(y)); tN = np.zeros(len(th))
+    xN[0] = x[0]; yN[0] = y[0]; tN[0] = th[0]
+
+    # Motion parameters
+    p = np.array([0.18, 0.4, 0.18, 0.0025])
+
+    for i in range(1, len(x)):
+        # -- Unpacking values -----
+        p1 = (x[i-1], y[i-1], th[i-1])
+        p2 = (x[i], y[i], th[i])
+
+        T1_w = vec2trans(p1)
+        T2_w = vec2trans(p2)
+
+        try:
+            T2_1 = np.linalg.inv(T1_w) @ T2_w
+        except:
+            print(f"{T2_1} is not invertible.")
+
+        x_bar_prime = p2[0]
+        y_bar_prime = p2[1]
+        theta_bar_prime = p2[2]
+
+        x_bar = T2_1[0][2]
+        y_bar = T2_1[1][2]
+        theta_bar = atan2(T2_1[1, 0], T2_1[0, 0])
+
+        _x = p1[0]
+        _y = p1[1]
+        _theta = p1[2]
+
+        # ----------------------
+
+        delta_rot1 = atan2(y_bar_prime - y_bar, x_bar_prime - x_bar) - theta_bar
+        delta_trans = sqrt((x_bar - x_bar_prime)**2 + (y_bar - y_bar_prime)**2)
+        delta_rot2 = wrap2pi(theta_bar_prime - theta_bar - delta_rot1)
+        
+        delta_hat_rot1 = delta_rot1 - np.random.normal(0, p[0]*delta_rot1**2 + p[1]*delta_trans**2)
+        delta_hat_trans = delta_trans - np.random.normal(0, p[2]*delta_trans**2 + p[3]*delta_rot1**2 + p[3]*delta_rot2**2)
+        delta_hat_rot2 = delta_rot2 - np.random.normal(0, p[0]*delta_rot2**2 + p[1]*delta_trans**2)
+
+        x_prime = _x + delta_hat_trans * cos(wrap2pi(_theta+delta_hat_rot1))
+        y_prime = _y + delta_hat_trans * sin(wrap2pi(_theta+delta_hat_rot1))
+        theta_prime = wrap2pi(_theta + delta_hat_rot1 + delta_hat_rot2)
+
+        xN[i] = x_prime; yN[i] = y_prime; tN[i] = theta_prime
+
+    return xN, yN, tN
+
 def calc_bearing(x1, y1, x2, y2):
     
     angle = atan2((y2 - y1), (x2 - x1))

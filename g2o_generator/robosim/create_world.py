@@ -31,7 +31,7 @@ class world:
         self.GNSS_frequency = GNSS_frequency
 
         if self.load_path:
-            loaded_route = load_from_json('./g2o_generator/robosim/data/robopath/'+self.route_name)
+            loaded_route = load_from_json('./g2o_generator/robosim/data/robopath/'+self.route_name+'.json')
             temp_x = np.asfarray(loaded_route[0]); temp_y = np.asfarray(loaded_route[1]); temp_th = np.asfarray(loaded_route[2])
             self.loaded_route = [[pose_x, pose_y, pose_th] for pose_x, pose_y, pose_th in zip(temp_x, temp_y, temp_th)]
 

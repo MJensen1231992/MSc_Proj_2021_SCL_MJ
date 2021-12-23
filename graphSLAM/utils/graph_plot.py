@@ -134,9 +134,10 @@ def graph_plot(graph, figid:int, Label:str, animate = False, poseEdgesPlot = Tru
         localBearing = bearingZ+bearingEdgesFrom[:,2]
         
         if landmarkEdgesPlot == True:
-            plt.plot(bearingEdgeX_corr,bearingEdgeY_corr,'k--')#, label = 'bearingEdges')
-            plt.plot([],[],'k--', label = 'bearingEdges')
-            plt.quiver(bearingEdgesFrom[:,0] , bearingEdgesFrom[:,1], np.cos(localBearing),np.sin(localBearing), label='Bearing', angles='xy',scale=0.5,alpha=0.2)
+            pass
+            # plt.plot(bearingEdgeX_corr,bearingEdgeY_corr,'k--')#, label = 'bearingEdges')
+            # plt.plot([],[],'k--', label = 'bearingEdges')
+            # plt.quiver(bearingEdgesFrom[:,0] , bearingEdgesFrom[:,1], np.cos(localBearing),np.sin(localBearing), label='Bearing', angles='xy',scale=0.5,alpha=0.2)
 
     if len(gps) > 0:
 
@@ -172,14 +173,22 @@ def graph_plot(graph, figid:int, Label:str, animate = False, poseEdgesPlot = Tru
 
 def plot_ground_together_noise(ground_graph, noise_graph, figid:int,):
     plt.figure(figid)
-    gposes, _, _, _ = get_poses_landmarks(ground_graph)
-    nposes, _, _, _ = get_poses_landmarks(noise_graph)
+    gposes, glm, glm_ID, _ = get_poses_landmarks(ground_graph)
+    nposes, nlm, nlm_ID, _ = get_poses_landmarks(noise_graph)
     
     if len(gposes) > 0:
         gposes = np.stack(gposes, axis=0) # axis = 0 turns into integers/slices and not tuple
         plt.plot(gposes[:,0], gposes[:,1], 'b',label='Ground truth')
         
-
+    if len(glm) > 0 and len(nlm) > 0:
+        glm = np.vstack(glm)
+        nlm = np.vstack(nlm)
+        plt.scatter(glm[:,0], glm[:,1], color='darkblue', label='True landmark')
+        for lx, ly, ID in zip(glm[:,0], glm[:,1], glm_ID):
+            plt.annotate(str(ID), xy=(lx, ly), color='purple', zorder=11)
+        plt.scatter(nlm[:,0], nlm[:,1], color='darkgreen', label='Guess landmark')
+        for lx, ly, ID in zip(nlm[:,0], nlm[:,1], nlm_ID):
+            plt.annotate(str(ID), xy=(lx, ly), color='purple', zorder=11)
 
     if len(nposes) > 0:
         nposes = np.stack(nposes, axis=0) # axis = 0 turns into integers/slices and not tuple
