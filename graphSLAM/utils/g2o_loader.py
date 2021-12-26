@@ -5,13 +5,14 @@ from utils.lib.triangulation import Triangulation as TRI
 from collections import namedtuple, defaultdict
 from utils.helper import from_uppertri_to_full, wrap2pi
 
-def load_g2o_graph(filename: str, noBearing: bool=True):#, firstMeas=True):
+def load_g2o_graph(filename: str, gt: bool, noBearing: bool=True):#, firstMeas=True):
     
     print(f"Loading file: {filename[15:-20]}")
 
     Edge = namedtuple(
         'Edge', ['Type', 'nodeFrom', 'nodeTo', 'poseMeasurement', 'information'] # g2o format of files.
     )
+
     edges = []
     nodes = {}
     nodeTypes = {}
@@ -33,7 +34,7 @@ def load_g2o_graph(filename: str, noBearing: bool=True):#, firstMeas=True):
                 nodeTypes[nodeId] = nodeType
 
             elif data[0] == 'VERTEX_XY':
-                if filename[15:-20] == 'ground_truth':
+                if filename[15:-20] == 'ground_truth' or True:
                     nodeType = 'VXY'
                     nodeId = int(data[1])
                     landmark = np.array(data[2:4],dtype=np.float64)  
@@ -96,9 +97,9 @@ def load_g2o_graph(filename: str, noBearing: bool=True):#, firstMeas=True):
             elif data[0] == 'EDGE_BEARING_SE2_XY' or 'EDGE_SE2_BEARING':
                 Type = 'B' #landmark type
                 nodeFrom = int(data[1])
-                nodeTo = int(data[2])                
-                poseMeasurement = float(data[3])#,dtype=np.float64)
-                information = float(data[4])#,dtype=np.float64)
+                nodeTo = int(data[2])
+                poseMeasurement = float(data[3])
+                information = float(data[4])
                 
                 edge = Edge(Type, nodeFrom, nodeTo, poseMeasurement, information)
                 edges.append(edge)
@@ -110,15 +111,15 @@ def load_g2o_graph(filename: str, noBearing: bool=True):#, firstMeas=True):
 
     lut, x = update_info(nodes)
 
-    if initial_qualified_guess:
-        nodes, nodeTypes, unused_lm = qualified_guess(edges, lut, x, nodes, nodeTypes, least_squares=True, triangulation=False, epsilon=0.0)
-        # edges = remove_unused_landmark(edges, unused_lm) # For later implementation
+    if gt==False and initial_qualified_guess:
+        print("Noisy data")
+        nodes, nodeTypes, unused_lm = qualified_guess(edges, lut, x, nodes, nodeTypes, least_squares=True, triangulation=False, epsilon=5.0)
+        edges, nodes, nodeTypes = remove_unused_landmark(edges, nodes, nodeTypes, unused_lm)
         lut, x = update_info(nodes)
 
     from run_slam import Graph
-
     graph = Graph(x, nodes, edges, lut, nodeTypes)
-    
+
     print('Loaded graph with {} nodes and {} edges'.format(len(graph.nodes), len(graph.edges)))
     print('\n')
 
@@ -129,6 +130,7 @@ def update_info(nodes):
     lut = {}
     x = []
     offset = 0
+
     for nodeId in nodes:
         lut.update({nodeId: offset})
         offset = offset + len(nodes[nodeId])
@@ -137,18 +139,36 @@ def update_info(nodes):
 
     return lut, x
 
-def remove_unused_landmark(edges, unused_lm):
+def remove_unused_landmark(edges, nodes, nodeTypes, unused_lm):
+
+    # Checking edges (apparently it has to be done twice...?)
+    for edge in edges:
+        if edge.nodeTo in unused_lm:
+            edges.remove(edge)
 
     for edge in edges:
-        if edge.Type == 'B':
+        if edge.nodeTo in unused_lm:
+            edges.remove(edge)
 
-            for lm_ID in unused_lm:
-                check = True if lm_ID == edge.nodeTo else False
+    # Checking nodes
+    for ID, _ in nodes.copy().items():
+        
+        for lm_ID in unused_lm:
+            check = True if lm_ID == ID else False
 
             if check:
-                edges.remove(edge)
+                del nodes[ID]
+    
 
-    return edges
+    # Checking nodetypes
+    for ID, _ in nodeTypes.copy().items():
+        for lm_ID in unused_lm:
+            check = True if lm_ID == ID else False
+
+            if check:
+                del nodeTypes[ID]
+
+    return edges, nodes, nodeTypes
 
 def qualified_guess(edges, lut, x, nodes, nodeTypes, least_squares: bool, triangulation: bool, epsilon: float):
 
@@ -185,19 +205,19 @@ def qualified_guess(edges, lut, x, nodes, nodeTypes, least_squares: bool, triang
         Xr = m[:,0:3]
         z_list = list(m[:,3])
 
-        if len(z_list) > 0: # 2 or more measurements are required for triangulation
+        if len(z_list) > 2: # n or more measurements are required for triangulation
             if least_squares:
                 Xl = ls.least_squares_klines(Xr, z_list)  # Computing least squares best guess
             elif triangulation:
                 Xl = tri.triangulation(Xr, z_list) # Computing triangulation best guess
 
             landmark = np.array([Xl[0,0], Xl[1,0]], dtype=np.float64)
-
             nodeType = 'VXY'
             nodeId = ID
             nodes[nodeId] = landmark
             nodeTypes[nodeId] = nodeType
-        else:
+
+        elif ID not in unused_lm:
             unused_lm.append(ID)
 
         del m
@@ -227,7 +247,7 @@ def initial_bearing_guess(nodes, nodeFrom, nodeTo, nodeTypes, poseMeasurement, l
             lm_status[nodeTo] = True
 
 def check_parallel_lines(p1, z1, p2, z2, epsilon: float) -> bool:
-    """Checking for parallel bearing measurements
+    """Checking for parallel lines
 
     Args:
         p1 (vector 3x1): Robot position at time i

@@ -67,14 +67,14 @@ def iterative_global_landmark_bearing_only_error(x,l,zij):
     return land_bearing_error
 
 
-def compute_global_error(graph, noBearing: bool = False):
+def compute_global_error(graph, noBearing: bool=False):
     
     err_Full = 0 
     err_Land = 0
     err_Pose = 0
     err_GPS = 0
     err_bearing = 0
-
+    
     for edge in graph.edges:
 
         if edge.Type == 'P':
@@ -98,7 +98,7 @@ def compute_global_error(graph, noBearing: bool = False):
             
             
         elif edge.Type == 'L':
-
+            continue
             fromIdx = graph.lut[edge.nodeFrom]
             toIdx = graph.lut[edge.nodeTo]
 
@@ -126,7 +126,7 @@ def compute_global_error(graph, noBearing: bool = False):
             
             
         elif edge.Type == 'G':
-
+            continue
             fromIdx = graph.lut[edge.nodeFrom]
             toIdx = graph.lut[edge.nodeTo]
 
@@ -148,7 +148,7 @@ def compute_global_error(graph, noBearing: bool = False):
             err_GPS += np.dot(R_xi.T,(gpsEdge-t_i))-z
 
         elif edge.Type =='B':
-
+            
             fromIdx = graph.lut[edge.nodeFrom]
             toIdx = graph.lut[edge.nodeTo]
 
