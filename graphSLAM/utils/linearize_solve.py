@@ -5,6 +5,7 @@ from scipy.sparse import csr_matrix
 from scipy.sparse.linalg import spsolve
 from scipy import linalg
 from scipy.sparse.linalg import svds, eigs
+from graphSLAM.utils.g2o_loader import check_parallel_lines
 from run_slam import *
 from utils.helper import *
 from utils.error import *
@@ -47,7 +48,7 @@ def linearize_solve(graph, lambdaH: float = 1.0, needToAddPrior=True, dcs=True):
                 omega_ij = (s_ij**2)*omega_ij
 
             if needToAddPrior:
-                H[fromIdx:fromIdx + 3, fromIdx:fromIdx + 3] = H[fromIdx:fromIdx + 3, fromIdx:fromIdx + 3] + 1e3 * np.eye(3)
+                H[fromIdx:fromIdx + 3, fromIdx:fromIdx + 3] = H[fromIdx:fromIdx + 3, fromIdx:fromIdx + 3] + 1e6 * np.eye(3)
                 needToAddPrior = False
 
             b_i, b_j, H_ii, H_ij, H_ji, H_jj = calc_gradient_hessian(A, B, omega_ij, error, edgetype='P')
@@ -130,30 +131,38 @@ def linearize_solve(graph, lambdaH: float = 1.0, needToAddPrior=True, dcs=True):
             toIdx = graph.lut[edge.nodeTo]
 
             x_b = graph.x[fromIdx:fromIdx+3] # robot pose
-            b_g = graph.x[toIdx:toIdx+2] # x,y of landmark in noisy gis. 
+            b_g = graph.x[toIdx:toIdx+2] # x,y of landmark in noisy gis.
+
+            check_divergence(b_g, x_b, graph, edge)
 
             z_ij = edge.poseMeasurement # brug meas til at regne x,y punkt ud fra least squares, eller initial gæt (a+t*n) måske r + cos og sin(h+theta)
             omega_ij = edge.information
-            
+
             error, A, B = pose_landmark_bearing_only_constraints(x_b, b_g, z_ij)
             
             if dcs:
                s_ij = dynamic_covariance_scaling(error, phi)
                omega_ij = (s_ij**2)*omega_ij
-            
+
             b_i, b_j, H_ii, H_ij, H_ji, H_jj = calc_gradient_hessian(A, B, omega_ij, error, edgetype='B')
 
-            #adding them to H and b       
+            #adding them to H and b
             H, b = build_gradient_hessian(b_i, b_j, H_ii, H_ij, H_ji, H_jj, H, b, fromIdx, toIdx, edgetype='B') 
-            
-    
+
     H_damp = (H+lambdaH*np.eye(H.shape[0]))
     H_sparse = csr_matrix(H_damp)
     sparse_dxstar = spsolve(H_sparse,-b)
     dxstar_squeeze = sparse_dxstar.squeeze()
-    
+
     return dxstar_squeeze, H_sparse, H, sparse_dxstar
-    
+
+def check_divergence(b_g, x_b, graph, edge):
+
+    d = np.linalg.norm(b_g.reshape(2,1) - x_b[:2].reshape(2,1))
+
+    if d > 20:
+        graph.edges.remove(edge)
+
 
 def pose_pose_constraints(xi,xj,zij):
     
@@ -210,7 +219,7 @@ def pose_landmark_bearing_only_constraints(x,l,z):
     #Will receive x,y position of landmark from least squares or triangulation
 
     z_bearing = z
-    x_j = l.reshape(2,1) #landmark posegæt 
+    x_j = l.reshape(2,1) #landmark poseguess
     t_i = x[:2].reshape(2,1) # robot translation(x,y)
     theta_i = x[2]
     

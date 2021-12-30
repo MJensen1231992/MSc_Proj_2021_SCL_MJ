@@ -196,6 +196,18 @@ def plot_ground_together_noise(ground_graph, noise_graph, figid:int,):
         
         plt.axis('equal')
     plt.legend()
+
+    plt.figure(figid+100)
+    if len(glm) > 0 and len(nlm) > 0:
+        glm = np.vstack(glm)
+        nlm = np.vstack(nlm)
+        plt.scatter(glm[:,0], glm[:,1], color='darkblue', label='True landmark')
+        for lx, ly, ID in zip(glm[:,0], glm[:,1], glm_ID):
+            plt.annotate(str(ID), xy=(lx, ly), color='purple', zorder=11)
+        plt.scatter(nlm[:,0], nlm[:,1], color='darkgreen', label='Guess landmark')
+        for lx, ly, ID in zip(nlm[:,0], nlm[:,1], nlm_ID):
+            plt.annotate(str(ID), xy=(lx, ly), color='purple', zorder=11)
+    plt.legend()
     #plt.show()
 
 def poses_per_landmark(graph):
@@ -231,11 +243,11 @@ def plot_errors(e_full,pose_error,bearing_error,land_error,gps_error):
 
     if len(pose_error) >0:
         f1, (ax1,ax2,ax3) = plt.subplots(1,3)
-        ax1.plot(e_pose[:,0], color='g', marker="o", label ='x err')
+        ax1.plot(e_pose[1:,0], color='g', linewidth=2, label ='x error')
         ax1.legend(loc="upper right")
-        ax2.plot(e_pose[:,1], label ='y err')
+        ax2.plot(e_pose[1:,1], color='g', linewidth=2, label ='y error')
         ax2.legend(loc="upper right")
-        ax3.plot(e_pose[:,2], label ='$\\theta$')
+        ax3.plot(e_pose[1:,2], color='g', linewidth=2, label ='$\\theta$ error')
         ax3.legend(loc="upper right")
     
     if len(bearing_error)>0:
@@ -260,7 +272,7 @@ def plot_errors(e_full,pose_error,bearing_error,land_error,gps_error):
         ax8.legend()
 
     _, ax9 = plt.subplots()
-    ax9.plot(e_full, label = 'full error')
+    ax9.plot(e_full, color='g', linewidth=2, label = 'full error')
     ax9.legend()
     
     

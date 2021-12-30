@@ -17,8 +17,8 @@ def load_g2o_graph(filename: str, gt: bool, noBearing: bool=True):#, firstMeas=T
     nodes = {}
     nodeTypes = {}
     lm_status = {}
-    initial_b_guess = False
-    initial_qualified_guess = True
+    initial_b_guess = True
+    initial_qualified_guess = False
 
  
     with open(filename, 'r') as file:
@@ -234,8 +234,8 @@ def initial_bearing_guess(nodes, nodeFrom, nodeTo, nodeTypes, poseMeasurement, l
     for id, status in lm_status.items():
         if id == nodeTo and status == False:
             
-            lambdadistx = 5
-            lambdadisty = 5
+            lambdadistx = 5#np.random.uniform(low=1, high=7)
+            lambdadisty = 5#np.random.uniform(low=1, high=7)
             xguess = x_b[0]+lambdadistx*np.cos(wrap2pi(x_b[2]+z_ij))
             yguess = x_b[1]+lambdadisty*np.sin(wrap2pi(x_b[2]+z_ij))
 

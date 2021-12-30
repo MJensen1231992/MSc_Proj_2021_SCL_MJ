@@ -50,13 +50,10 @@ def graph_slam_run_algorithm(graph, numIter):
 
     lambdaH = LAMBDAH
     for i in trange(numIter, position=0, leave=True, desc='Running SLAM algorithm'):
-        
-        #if i>0:
+
         old_x = graph.x
-        #print(f"OLD X TOP OF FOR LOOP:\n{old_x}\n")
-        
         error_before, err_pose, err_bearing, err_land , err_gps = compute_global_error(graph)
-        #print(f"global error before:\n{error_before}\n")
+
         err_opt_f.append(error_before)
         e_pose.append(err_pose)
         e_bear.append(err_bearing)
@@ -64,27 +61,25 @@ def graph_slam_run_algorithm(graph, numIter):
         # e_gps.append(err_gps)
 
         dX, _, _, _ = linearize_solve(graph, lambdaH=lambdaH)
-        # plt.spy(Hs)
-        # plt.show()
         graph.x += dX
 
         if i>0:
             err_diff = err_opt_f[i-1]-err_opt_f[i] # E - error(x)
-            print(f"error diff : {err_diff}")
-            if err_diff < 0:
+
+            # Error x and y
+            errx = e_pose[i-1][0] - e_pose[i][0] 
+            erry = e_pose[i-1][1] - e_pose[i][1]
+
+            print(f"error diff : {err_diff}\n")
+            if err_diff < 0 or errx < 0 or erry < 0:
                 graph.x = old_x
-                #print(f"OLD X RECOVERED\n")
                 lambdaH *= 2
-                #print("Error is larger than previous iteration")
-                #print(f"lambda is: {lambdaH}")
+
             else:
                 lambdaH /= 2
-                #print(f"lambda is: {lambdaH}")
-            
+
+
         diff = np.append(diff, err_diff)
-        #print(graph.x)
-        #if i % 1 == 0:
-        #    graph_plot(graph,animate=False)q
         
         norm_dX = np.linalg.norm(dX)
 
@@ -124,14 +119,6 @@ if __name__ == '__main__' :
     pre_graph = copy.deepcopy(n_graph)
 
     plot_ground_together_noise(g_graph, n_graph, figid=4)
-    #Rmse_pre =RMSE(n_graph.x, g_graph.x)
-    #print(f"print RMSE PRE: {Rmse_pre}")
-    # e,_,_,_ = noise.error
-    # print(e)
-    #_, Hs ,_,_= linearize_solve(n_graph)
-    #plt.spy(Hs)
-    #plt.show()
-    #error_before, _ , _ , _ = compute_global_error(n_graph)
 
     dx = graph_slam_run_algorithm(n_graph,20)
     
