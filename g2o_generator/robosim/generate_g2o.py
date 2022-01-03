@@ -100,8 +100,12 @@ class g2o:
         g2oW = self.write_basics(self.x, self.y, self.th, self.xN, self.yN, self.thN, self.gt_landmarks, self.landmarks)
         self.ground_truth(self.x, self.y, self.th, self.gt_landmarks)
         self.do_loop_closure(self.x, self.y, self.th, self.xN, self.yN, self.thN, g2oW, corruption_type)
-       
-        lm_x, lm_y, lm_th = zip(*self.landmark_arrow)
+        
+        try:
+            lm_x, lm_y, lm_th = zip(*self.landmark_arrow)
+        except ValueError:
+            print("No landmarks detected, but route will show anyways")
+            pass
         
         if plot:
             
