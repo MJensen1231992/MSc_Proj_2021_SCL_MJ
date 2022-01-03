@@ -15,7 +15,7 @@ from lib.geometric_utility import p_intersection
 import csv_reader as GIS
 
 class g2o:
-    def __init__(self, odometry_file, filenamePoints, filenamePoly, filelandmarks, lm_lc_range: float=15, odo_lc_range: float=2, fov: float=45):
+    def __init__(self, odometry_file_gt, odometry_file_noise, filenamePoints, filenamePoly, filelandmarks, lm_lc_range: float=15, odo_lc_range: float=2, fov: float=45):
 
         self.pose_pose, self.pose_landmark = [], []
         self.pose_pose_outliers, self.pose_landmark_outlier = [], []
@@ -65,7 +65,7 @@ class g2o:
         #                                     [0, 0, np.sin(self.std_lm_th**2)]]))
 
         # Loading and extracting save odometry route
-        odometry = load_from_json(odometry_file)
+        odometry = load_from_json(odometry_file_gt)
         temp_x = np.asfarray(odometry[0]); temp_y = np.asfarray(odometry[1]); temp_th = np.asfarray(odometry[2])
         loaded_route = [[pose_x, pose_y, pose_th] for pose_x, pose_y, pose_th in zip(temp_x, temp_y, temp_th)]
 
@@ -74,10 +74,23 @@ class g2o:
 
         # Adding noise to odo route
         self.x, self.y, self.th = zip(*np.asarray_chkfinite(reduced_path, dtype=np.float64))
-        self.xN, self.yN, self.thN = addNoise(self.x, self.y, self.th, std_odo_x, std_odo_y, std_odo_th, mu_bias)
-        
 
-        print("Distance traveled: {:.0f} m".format(distance_traveled(self.x,self.y)))
+        load_noise = True # load_noise = True -> You load the same odometry route. False -> you load the same ground truth route and THEN adding noise
+        if load_noise:
+            odometry_noise = load_from_json(odometry_file_noise)
+            temp_xN = np.asfarray(odometry_noise[0]); temp_yN = np.asfarray(odometry_noise[1]); temp_thN = np.asfarray(odometry_noise[2])
+            loaded_route_noise = [[pose_x, pose_y, pose_th] for pose_x, pose_y, pose_th in zip(temp_xN, temp_yN, temp_thN)]
+
+            temp_x2, temp_y2, temp_th2 = zip(*loaded_route_noise)
+            reduced_path_noise = reduce_dimensions(np.array([temp_x2, temp_y2, temp_th2]), 'half')
+
+            self.xN, self.yN, self.thN = zip(*np.asarray_chkfinite(reduced_path_noise, dtype=np.float64))
+        else:
+            self.xN, self.yN, self.thN = addNoise(self.x, self.y, self.th, std_odo_x, std_odo_y, std_odo_th, mu_bias)
+           
+            
+
+        print("Distance traveled: {:.0f} m".format(distance_traveled(self.x, self.y)))
 
         # GPS on ground truth
         self.x_gnss, self.y_gnss, self.gt_x_gnss, self.gt_y_gnss, self.n_gps = g2o.GNSS_reading(self.x, self.y, self.GNSS_freq, std_gnss_x, std_gnss_y)

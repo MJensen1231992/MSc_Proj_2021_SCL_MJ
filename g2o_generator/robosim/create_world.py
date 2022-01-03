@@ -101,8 +101,18 @@ class world:
                 json_path = np.array([x_odo, y_odo, th_odo])
                 json_path1 = json_path.tolist()
                 save_to_json(json_path1,'./g2o_generator/robosim/data/robopath/'+self.route_name+'.json')
+                route_gt = './g2o_generator/robosim/data/robopath/'+self.route_name+'.json'
 
-                return './g2o_generator/robosim/data/robopath/'+self.route_name+'.json'
+                ######################################### Saving noisy rouite for analysis ################################################
+                std_odo_x = 0.1; std_odo_y = 0.2; std_odo_th = deg2rad(0.1); mu_bias = 0.3
+
+                x_odo_N, y_odo_N, th_odo_N = addNoise(x_odo, y_odo, th_odo, std_odo_x, std_odo_y, std_odo_th, mu_bias)
+                json_path_N = np.array([x_odo_N, y_odo_N, th_odo_N])
+                json_path2 = json_path_N.tolist()
+                save_to_json(json_path2,'./g2o_generator/robosim/data/robopath/'+self.route_name+'_noise'+'.json')
+                route_noise = './g2o_generator/robosim/data/robopath/'+self.route_name+'_noise'+'.json'
+
+                return route_gt, route_noise
 
             except:
                 print("No robot path chosen \nLeft-click on plot in window to generate robot path")
