@@ -129,26 +129,26 @@ trackID_ = trackID_(idx2);
 
 %% Data visualisation
 
-plot(xPoints,yPoints, 'LineWidth', 2, Color='red')
-hold on
-for i=1:numel(xPoints_)
-    yaw_temp = [yaw_{i}];
-    for k=1:length(yaw_temp)
-        q = quiver(xPoints_(i),yPoints_(i),cos(yaw_temp(k)+thPoints_(i))*3,sin(yaw_temp(k)+thPoints_(i))*3);
-        q.Color = 'blue';
-        q.AutoScale = 'on';
-        q.LineWidth = 2;
-    end
-end
-
-legend({'Odometry','Bearing measurements'},'Location','southwest')
-xlabel('x [m]') 
-ylabel('y [m]') 
-title('Robot route at Hasselager')
-% q = quiver(xPoints_,yPoints_,cos(thPoints_),sin(thPoints_));
-axis equal
-grid on
-hold off
+% plot(xPoints,yPoints, 'LineWidth', 2, Color='red')
+% hold on
+% for i=1:numel(xPoints_)
+%     yaw_temp = [yaw_{i}];
+%     for k=1:length(yaw_temp)
+%         q = quiver(xPoints_(i),yPoints_(i),cos(yaw_temp(k)+thPoints_(i))*3,sin(yaw_temp(k)+thPoints_(i))*3);
+%         q.Color = 'blue';
+%         q.AutoScale = 'on';
+%         q.LineWidth = 2;
+%     end
+% end
+% 
+% legend({'Odometry','Bearing measurements'},'Location','southwest')
+% xlabel('x [m]') 
+% ylabel('y [m]') 
+% title('Robot route at Hasselager')
+% % q = quiver(xPoints_,yPoints_,cos(thPoints_),sin(thPoints_));
+% axis equal
+% grid on
+% hold off
 
 
 %% Data export
@@ -165,23 +165,10 @@ hold off
 % yaw_ = yaw_(idx2);
 % trackID_ = trackID_(idx2);
 
-% data = [xPoints, yPoints, thPoints];
-% n = numel(xPoints);
-% 
-% class_(end+1:n) = nan;
-% yaw_(end+1:n) = nan;
-% trackID_(end+1:n) = nan;
-% prob_(end+1:n) = nan;
-% 
-% data_b = [class_ yaw_, trackID_, prob_];
+data = [xPoints, yPoints, thPoints];
+data = array2table(data);
+data.Properties.VariableNames(1:4) = {'Timestamp', 'x', 'y', 'th'};
 
-% data = array2table(data);
-% data.Properties.VariableNames(1:7) = {'x', 'y', 'th', 'class', 'bearing', 'ID', 'prob'};
-% 
-% 
-% data_b = array2table(data_b);
-% data_b.Properties.VariableNames(1:7) = {'class', 'bearing', 'ID', 'prob'};
-% 
-% writetable(data, '/data/bag_data_rui.csv')
-% writematrix()
+writetable(data, '/data/bag_data_rui.csv')
+writematrix()
 

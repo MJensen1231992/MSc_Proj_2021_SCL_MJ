@@ -17,8 +17,8 @@ def load_g2o_graph(filename: str, gt: bool, noBearing: bool=True):#, firstMeas=T
     nodes = {}
     nodeTypes = {}
     lm_status = {}
-    initial_b_guess = True
-    initial_qualified_guess = False
+    initial_b_guess = False
+    initial_qualified_guess = True
 
  
     with open(filename, 'r') as file:

@@ -133,7 +133,7 @@ def linearize_solve(graph, lambdaH: float = 1.0, needToAddPrior=True, dcs=True):
             x_b = graph.x[fromIdx:fromIdx+3] # robot pose
             b_g = graph.x[toIdx:toIdx+2] # x,y of landmark in noisy gis.
 
-            check_divergence(b_g, x_b, graph, edge)
+            check_divergence(b_g, x_b, graph, edge, edge.nodeTo)
 
             z_ij = edge.poseMeasurement # brug meas til at regne x,y punkt ud fra least squares, eller initial gæt (a+t*n) måske r + cos og sin(h+theta)
             omega_ij = edge.information
@@ -156,12 +156,16 @@ def linearize_solve(graph, lambdaH: float = 1.0, needToAddPrior=True, dcs=True):
 
     return dxstar_squeeze, H_sparse, H, sparse_dxstar
 
-def check_divergence(b_g, x_b, graph, edge):
+def check_divergence(b_g, x_b, graph, edge, lm_ID):
 
     d = np.linalg.norm(b_g.reshape(2,1) - x_b[:2].reshape(2,1))
 
     if d > 20:
         graph.edges.remove(edge)
+
+        for ID, _ in graph.nodes.copy().items():
+            if lm_ID == ID:
+                del graph.nodes[lm_ID]
 
 
 def pose_pose_constraints(xi,xj,zij):

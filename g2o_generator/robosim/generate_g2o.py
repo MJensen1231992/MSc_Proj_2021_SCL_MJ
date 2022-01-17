@@ -26,7 +26,7 @@ class g2o:
 
         # This will only get the bearing to landmarks and not 
         # initialize the g2o file with landmark locations
-        self.bearing_only = True
+        self.bearing_only = False
         self.FOV = np.deg2rad(fov) # Camera field of view of the robot
 
         self.lm_thresh = 3
@@ -36,7 +36,7 @@ class g2o:
         self.time_stamp = time.strftime("%Y%m%d-%H%M%S")
 
         # Corrupt the dataset with outliers
-        self.corrupt_dataset = False
+        self.corrupt_dataset = True
         self.n_outliers = 100
         self.outlier_type = {"random": 1,           # Connect any two randomly sampled nodes in the graph
                              "local": 2,            # Conenct random nodes that ar ein the vincinity of each other
@@ -45,7 +45,7 @@ class g2o:
                              "none": -1}
 
         std_gnss_x = 0.7; std_gnss_y = 0.7
-        std_odo_x = 0.1; std_odo_y = 0.2; std_odo_th = deg2rad(0.1); mu_bias = 0.8
+        std_odo_x = 0.1; std_odo_y = 0.2; std_odo_th = deg2rad(0.1); mu_bias = 0.4
         std_lm_x = 0.7; std_lm_y = 0.7; self.std_lm_th = deg2rad(1)
 
         # Information matrices: 
@@ -134,27 +134,34 @@ class g2o:
                 self.plot_constraints()
 
             if plot_outliers:
-                plt.plot(self.xN, self.yN, label='Noise route')
+                # plot_outliers_vs_normal(self.pose_pose_outliers, self.pose_landmark_outlier, self.pose_pose, self.pose_landmark)
+                plt.plot(self.xN, self.yN, label='Odometry')
                 self.plot_outliers()
-                plot_outliers_vs_normal(self.pose_pose_outliers, self.pose_landmark_outlier, self.pose_pose, self.pose_landmark)
 
-            if plot_robot_heading:
-                # robot_heading(self.x, self.y, self.th, color="blue", length=1)
-                robot_heading(self.xN, self.yN, self.thN, color="gray", length=1)
-                robot_heading(lm_x, lm_y, lm_th, color="green", length=0.01, alpha=0.5)
+            # if plot_robot_heading:
+            #     robot_heading(self.x, self.y, self.th, color="blue", length=1)
+            #     robot_heading(self.xN, self.yN, self.thN, color="gray", length=0.5)
+                # robot_heading(lm_x, lm_y, lm_th, color="green", length=0.01, alpha=0.5)
 
-            plt.plot(self.x, self.y, label='Groundtruth')
-            plt.plot(self.xN, self.yN, label='Noise route')
+            # plt.plot(self.x, self.y, label='Groundtruth')
+            # plt.plot(self.xN, self.yN, label='Noisy route')
+
             # plt.scatter(np.asarray_chkfinite(self.x_gnss), np.asarray_chkfinite(self.y_gnss), marker='x', color='red',
                                                 # label='GPS points')
             # plt.scatter(self.x[50], self.y[50], color='red')
             # circle1 = plt.Circle((self.x[50], self.y[50]), 10, fill=False, label='Loop closure range', color='red')
             # plt.gca().add_patch(circle1)
-            plt.legend(loc='upper right')
+            handles, labels = plt.gca().get_legend_handles_labels()
+            by_label = dict(zip(labels, handles))
+            plt.legend(by_label.values(), by_label.keys(), loc='upper right')
             # legend = plt.legend()
             # legend.remove()
             plt.ylabel("UTM32 Y")
             plt.xlabel("UTM32 X")
+
+            # plt.xlim(min(min(self.x),min(self.xN)), min(min(self.x),min(self.xN)))
+            # plt.ylim(min(min(self.y),min(self.yN)), max(max(self.y),max(self.yN)))
+            
             plt.show()
 
 
@@ -492,7 +499,7 @@ class g2o:
                         lc_constraint_lm = self.generate_lc_constraint(curr_pose, other_pose) # Calc constraint to robot coordinate
 
                         # Saving pose_landmark for visualization
-                        self.pose_landmark.append([points[pose_id][0:2], pos])
+                        self.pose_landmark.append([pointsN[pose_id][0:2], pos])
                         self.landmark_arrow.append([pointsN[pose_id][0], pointsN[pose_id][1], noisy_bearing])
 
                         if self.bearing_only:
@@ -601,61 +608,64 @@ class g2o:
 
     def plot_outliers(self):
         
-        # if len(self.pose_pose_outliers) > 1:
-        #     pose_pose_outliers = np.vstack(self.pose_pose_outliers)
+        if len(self.pose_pose_outliers) > 1:
+            pose_pose_outliers = np.vstack(self.pose_pose_outliers)
             
-        #     pose_outliersx = pose_pose_outliers[:,0]
-        #     pose_outliersy = pose_pose_outliers[:,1]
+            pose_outliersx = pose_pose_outliers[:,0]
+            pose_outliersy = pose_pose_outliers[:,1]
             
-        #     pox = np.vstack([pose_outliersx[0::2], pose_outliersx[1::2]])
-        #     poy = np.vstack([pose_outliersy[0::2], pose_outliersy[1::2]])
+            pox = np.vstack([pose_outliersx[0::2], pose_outliersx[1::2]])
+            poy = np.vstack([pose_outliersy[0::2], pose_outliersy[1::2]])
         
-        #     plt.plot(pox, poy, color='gray', alpha=0.3)
-        # else:
-        #     print("No pose pose outlier loop closures")
-
-        if len(self.pose_landmark_outlier) > 1:
-            pose_landmark_outlier = np.vstack(self.pose_landmark_outlier)
-            
-            landmark_outliersx = pose_landmark_outlier[:,0]
-            landmark_outliersy = pose_landmark_outlier[:,1]
-            
-            plx = np.vstack([landmark_outliersx[0::2], landmark_outliersx[1::2]])
-            ply = np.vstack([landmark_outliersy[0::2], landmark_outliersy[1::2]])
-        
-            plt.plot(plx, ply, color='gray', alpha=0.3)
+            plt.plot(pox, poy, color='gray', alpha=0.3, label="Outlier pose constraints")
         else:
             print("No pose pose outlier loop closures")
 
+        # if len(self.pose_landmark_outlier) > 1:
+        #     pose_landmark_outlier = np.vstack(self.pose_landmark_outlier)
+            
+        #     landmark_outliersx = pose_landmark_outlier[:,0]
+        #     landmark_outliersy = pose_landmark_outlier[:,1]
+            
+        #     plx = np.vstack([landmark_outliersx[0::2], landmark_outliersx[1::2]])
+        #     ply = np.vstack([landmark_outliersy[0::2], landmark_outliersy[1::2]])
+        
+        #     plt.plot(plx, ply, color='gray', alpha=0.3, label="Outlier landmark constraints")
+            
+        # else:
+        #     print("No pose pose outlier loop closures")
+
     def plot_constraints(self):
         
-        if len(self.pose_landmark) > 1:
-            # pose_landmark
-            pose_landmark = np.vstack(self.pose_landmark)
+        # if len(self.pose_landmark) > 1:
+        #     # pose_landmark
+        #     pose_landmark = np.vstack(self.pose_landmark)
             
-            pose_landmarkx = pose_landmark[:,0]
-            pose_landmarky = pose_landmark[:,1]
+        #     pose_landmarkx = pose_landmark[:,0]
+        #     pose_landmarky = pose_landmark[:,1]
             
-            plx = np.vstack([pose_landmarkx[0::2], pose_landmarkx[1::2]])
-            ply = np.vstack([pose_landmarky[0::2], pose_landmarky[1::2]])
+        #     plx = np.vstack([pose_landmarkx[0::2], pose_landmarkx[1::2]])
+        #     ply = np.vstack([pose_landmarky[0::2], pose_landmarky[1::2]])
             
-            plt.plot(plx, ply, color='purple')
-        else:
-            print("No pose landmark loop closures")
 
-        # if len(self.pose_pose) > 1:
-        #     # pose_pose
-        #     pose_pose = np.vstack(self.pose_pose)
-            
-        #     pose_posex = pose_pose[:,0]
-        #     pose_posey = pose_pose[:,1]
-            
-        #     ppx = np.vstack([pose_posex[0::2], pose_posex[1::2]])
-        #     ppy = np.vstack([pose_posey[0::2], pose_posey[1::2]])
-            
-        #     plt.plot(ppx, ppy, color='purple')
+        #     plt.plot(plx, ply, color='purple', label="Real landmark constraints")
+
         # else:
-        #     print("No pose pose loop closures")
+        #     print("No pose landmark loop closures")
+
+        if len(self.pose_pose) > 1:
+            # pose_pose
+            pose_pose = np.vstack(self.pose_pose)
+            
+            pose_posex = pose_pose[:,0]
+            pose_posey = pose_pose[:,1]
+            
+            ppx = np.vstack([pose_posex[0::2], pose_posex[1::2]])
+            ppy = np.vstack([pose_posey[0::2], pose_posey[1::2]])
+            
+            plt.plot(ppx, ppy, color='purple', label="Real pose constraints")
+        else:
+            print("No pose pose loop closures")
 
 
 
