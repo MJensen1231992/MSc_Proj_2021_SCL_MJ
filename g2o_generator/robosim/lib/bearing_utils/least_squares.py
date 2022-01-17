@@ -1,8 +1,5 @@
 import numpy as np
 
-from lib.bearing_utils.triangulation import Triangulation
-
-
 class LeastSquares:
 
     def __init__(self):

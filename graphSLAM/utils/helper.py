@@ -1,9 +1,11 @@
 import numpy as np
+import math
 
 def get_poses_landmarks(graph):
 
     poses = []
     landmarks = []
+    lm_ID = []
     gps = []
     
     for nodeId in graph.nodes:
@@ -17,12 +19,13 @@ def get_poses_landmarks(graph):
         if graph.nodeTypes[nodeId] == 'VXY':
             landmark = graph.x[offset:offset+2]
             landmarks.append(landmark)
+            lm_ID.append(nodeId)
 
         if graph.nodeTypes[nodeId] == 'VGPS':
             gp = graph.x[offset:offset+2]
             gps.append(gp)
 
-    return poses, landmarks, gps
+    return poses, landmarks, lm_ID, gps
     
 def vec2trans(pose):
 
@@ -38,7 +41,7 @@ def trans2vec(T):
 
     x = T[0,2]
     y = T[1,2]
-    theta = np.arctan2(T[1,0],
+    theta = math.atan2(T[1,0],
                        T[0,0])
     vec = np.array([x,y,theta],dtype=np.float64)
 
@@ -103,6 +106,10 @@ def calc_gradient_hessian(A,B,information,error, edgetype: str):
         b_i = np.dot(np.dot(A.T,information), error).reshape(3,1)
         b_j = np.dot(np.dot(B.T,information), error).reshape(2,1)
 
+        H_ii = np.dot(np.dot(A.T,information), A) 
+        H_ij = np.dot(np.dot(A.T,information), B) 
+        H_ji = np.dot(np.dot(B.T,information), A) 
+        H_jj = np.dot(np.dot(B.T,information), B)  
 
     H_ii = np.dot(np.dot(A.T,information), A) 
     H_ij = np.dot(np.dot(A.T,information), B) 
@@ -111,12 +118,12 @@ def calc_gradient_hessian(A,B,information,error, edgetype: str):
     
     return b_i, b_j, H_ii, H_ij, H_ji, H_jj
 
-def build_gradient_hessian(b_i, b_j, H_ii, H_ij, H_ji, H_jj,H,b,fromIdx,toIdx, edgetype: str):
+def build_gradient_hessian(b_i, b_j, H_ii, H_ij, H_ji, H_jj, H, b, fromIdx, toIdx, edgetype: str):
     
     if edgetype=='P':
 
         H[fromIdx:fromIdx+3, fromIdx:fromIdx+3] += H_ii
-        H[fromIdx:fromIdx+3, toIdx:toIdx+3] += H_ij
+        H[fromIdx:fromIdx+3, toIdx:toIdx+3] += H_ij.T
         H[toIdx:toIdx+3, fromIdx:fromIdx+3] += H_ji
         H[toIdx:toIdx+3, toIdx:toIdx+3] += H_jj
 

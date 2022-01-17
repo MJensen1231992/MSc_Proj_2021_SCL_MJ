@@ -1,8 +1,11 @@
-from helper import wrap2pi
 import numpy as np
-print(wrap2pi(4.10))
+from math import atan2
 
-print(106-135)
+l = [4, 10, 30]
 
-print(np.cos(-0.46768193))
-print(np.sin(-0.46768193))
+ID = 3
+
+print(ID in l)
+
+
+
