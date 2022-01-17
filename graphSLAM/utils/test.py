@@ -1,8 +1,13 @@
-from helper import wrap2pi
 import numpy as np
-print(wrap2pi(4.10))
 
-print(106-135)
 
-print(np.cos(-0.46768193))
-print(np.sin(-0.46768193))
+a = (5-3)**2
+l = (9-2)**2
+print(np.sqrt(53))
+k = np.array([[5,2],[3,9]])
+
+c = np.array([5,9])
+d = np.array([3,2])
+b = np.linalg.norm(c-d)
+
+print(a,l,b)

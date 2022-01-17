@@ -1,9 +1,15 @@
 import numpy as np
+import math
+import pandas as pd
+import matplotlib.pyplot as plt
+import json
+from collections import Counter
 
 def get_poses_landmarks(graph):
 
     poses = []
     landmarks = []
+    lm_ID = []
     gps = []
     
     for nodeId in graph.nodes:
@@ -17,12 +23,14 @@ def get_poses_landmarks(graph):
         if graph.nodeTypes[nodeId] == 'VXY':
             landmark = graph.x[offset:offset+2]
             landmarks.append(landmark)
+            lm_ID.append(nodeId)
 
         if graph.nodeTypes[nodeId] == 'VGPS':
             gp = graph.x[offset:offset+2]
             gps.append(gp)
 
-    return poses, landmarks, gps
+    return poses, landmarks, lm_ID, gps
+     
     
 def vec2trans(pose):
 
@@ -38,7 +46,7 @@ def trans2vec(T):
 
     x = T[0,2]
     y = T[1,2]
-    theta = np.arctan2(T[1,0],
+    theta = math.atan2(T[1,0],
                        T[0,0])
     vec = np.array([x,y,theta],dtype=np.float64)
 
@@ -88,20 +96,45 @@ def wrap2pi(angle):
     
     return angle
 
-def RMSE(predicted, actual):
-    return np.square(np.subtract(actual,predicted)).mean() 
+def RMSE(actual, predicted):
 
+    gposes, gland, _ = get_poses_landmarks(actual)
+    gposes = np.stack(gposes, axis=0)
+
+    nposes, nland, _ = get_poses_landmarks(predicted)
+    nposes = np.stack(nposes, axis=0)
+
+    rms_pose_error = np.square(np.subtract(gposes,nposes)).mean() 
+    rms_land_error = np.square(np.subtract(gland,nland)).mean() 
+    print(f"Root mean square error poses:{rms_pose_error}")
+    print(f"Root mean square error landmark:{rms_land_error}")
+
+    return
+
+def var_med_odo(ground_graph, noise_graph):
+
+    gposes, _, _ = get_poses_landmarks(ground_graph)
+    gposes = np.stack(gposes, axis=0)
+
+    nposes, _, _ = get_poses_landmarks(noise_graph)
+    nposes = np.stack(nposes, axis=0)
+    
+    diff = gposes - nposes
+
+    var = np.var(diff, axis=0)
+    med = np.median(diff,axis=0)
+    return var, med 
 
 def calc_gradient_hessian(A,B,information,error, edgetype: str):
     
     if edgetype == 'P':
-        b_i = np.dot(np.dot(A.T,information), error).reshape(3,1)
-        b_j = np.dot(np.dot(B.T,information), error).reshape(3,1)
-
+        b_i = np.dot(np.dot(A.T,information), error)
+        b_j = np.dot(np.dot(B.T,information), error)
+        
     else:
         
-        b_i = np.dot(np.dot(A.T,information), error).reshape(3,1)
-        b_j = np.dot(np.dot(B.T,information), error).reshape(2,1)
+        b_i = np.dot(np.dot(A.T,information), error)
+        b_j = np.dot(np.dot(B.T,information), error)
 
 
     H_ii = np.dot(np.dot(A.T,information), A) 
@@ -132,7 +165,7 @@ def build_gradient_hessian(b_i, b_j, H_ii, H_ij, H_ji, H_jj,H,b,fromIdx,toIdx, e
         
         b[fromIdx:fromIdx+3] += b_i
         b[toIdx:toIdx+2] += b_j
-
+    
     return H, b
 
 def printPrincipalDiagonal(mat, n):
@@ -145,3 +178,7 @@ def printPrincipalDiagonal(mat, n):
             if (i == j):
                 print(mat[i][j], end = ", ")
     print()
+
+def load_from_json(name):
+    with open(name, 'r') as f:
+        return json.load(f)
