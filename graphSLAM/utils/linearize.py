@@ -23,6 +23,7 @@ def information_matrix(graph):
 def linearize_solve(graph, lambdaH: float = 1.0, needToAddPrior=True, dcs=True):#iter: int = 1,
     bearing_E = []
     phi = PHI
+    bob = []
     
     H, b = information_matrix(graph)
     
@@ -76,7 +77,7 @@ def linearize_solve(graph, lambdaH: float = 1.0, needToAddPrior=True, dcs=True):
                 if dcs:
                    s_ij = dynamic_covariance_scaling(error, phi)
                    omega_ij = (s_ij**2)*omega_ij
-
+                
                 b_i, b_j, H_ii, H_ij, H_ji, H_jj = calc_gradient_hessian(A, B, omega_ij, error, edgetype = 'L')
 
                 #adding them to H and b
@@ -94,7 +95,7 @@ def linearize_solve(graph, lambdaH: float = 1.0, needToAddPrior=True, dcs=True):
 
                 #adding them to H and b
                 H, b = build_gradient_hessian(b_i, b_j, H_ii, H_ij, H_ji, H_jj, H, b, fromIdx, toIdx, edgetype='LB')
-        
+
     
         elif edge.Type == 'G':
             
@@ -122,38 +123,67 @@ def linearize_solve(graph, lambdaH: float = 1.0, needToAddPrior=True, dcs=True):
 
             fromIdx = graph.lut[edge.nodeFrom]
             toIdx = graph.lut[edge.nodeTo]
-
+            
             x_i = graph.x[fromIdx:fromIdx+3] # robot pose
             x_j = graph.x[toIdx:toIdx+2] # x,y of landmark in noisy gis. comes from loader 
+
+            lm_ID = edge.nodeTo
+
+            check_divergence(x_j, x_i, graph, edge, lm_ID)
 
             z_ij = edge.poseMeasurement # brug meas til at regne x,y punkt ud fra least squares, eller initial gæt (a+t*n) måske r + cos og sin(h+theta)
             omega_ij = edge.information
             
-            
 
             
             error, A, B = pose_landmark_bearing_only_constraints(x_i, x_j, z_ij)
-            # bearing_E = np.append(bearing_E,np.abs(error))
-            
-            
+        # bearing_E = np.append(bearing_E,np.abs(error))
+        
+        
             if dcs:
-               s_ij = dynamic_covariance_scaling(error, phi)
-               omega_ij = (s_ij**2)*omega_ij
-            
+                s_ij = dynamic_covariance_scaling(error, phi)
+                omega_ij = (s_ij**2)*omega_ij
+                bob.append(s_ij)
+                
             b_i, b_j, H_ii, H_ij, H_ji, H_jj = calc_gradient_hessian(A, B, omega_ij, error, edgetype='B')
-           
-            H, b = build_gradient_hessian(b_i, b_j, H_ii, H_ij, H_ji, H_jj,H,b, fromIdx, toIdx, edgetype='B') 
             
-    
+            H, b = build_gradient_hessian(b_i, b_j, H_ii, H_ij, H_ji, H_jj,H,b, fromIdx, toIdx, edgetype='B') 
+                
+                
+            
     # plt.plot(bearing_E)
     # plt.show()
+    
     H_damp = (H+lambdaH*np.eye(H.shape[0]))
     H_sparse = csr_matrix(H_damp)
+    get_sparse_size(H_sparse)
+    
     sparse_dxstar = spsolve(H_sparse,-b)
     dX = sparse_dxstar.squeeze()#
     
-    
+    print(bob)
     return dX, H_sparse, H, sparse_dxstar
+    
+def get_sparse_size(smatrix):
+    # get size of a sparse matrix
+    sp_size = int((smatrix.data.nbytes + smatrix.indptr.nbytes + smatrix.indices.nbytes) / 1024.)
+    reg_size = smatrix.toarray().nbytes / 1024.
+    print(f"sparse size {sp_size} Kb\n reg size {reg_size} Kb\n")
+    return 
+
+def check_divergence(b_g, x_b, graph, edge, lm_id):
+
+    
+    d = np.linalg.norm(b_g.reshape(2,1) - x_b[:2].reshape(2,1))
+
+    if d > 100:
+         
+        graph.edges.remove(edge)
+        
+        for ID, _ in graph.nodes.copy().items():
+            if lm_id == ID:
+                del graph.nodes[lm_id]
+        
     
 
 def pose_pose_constraints(xi,xj,zij):
@@ -162,7 +192,7 @@ def pose_pose_constraints(xi,xj,zij):
 
     #angles
     theta_i = xi[2]
-    theta_j = xj[2] 
+    theta_j = xj[2]
     theta_ij = zij[2]
 
     #translation part

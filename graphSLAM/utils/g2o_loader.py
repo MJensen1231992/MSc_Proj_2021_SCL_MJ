@@ -119,7 +119,7 @@ def load_g2o_graph(filename, noBearing=True):#, firstMeas=True):
     lut, x = update_info(nodes)
 
     if initial_qualified_guess:
-        nodes, nodeTypes, unused_lm = qualified_guess(edges, lut, x, nodes, nodeTypes, least_squares=True, triangulation=False, epsilon=5)
+        nodes, nodeTypes, unused_lm = qualified_guess(edges, lut, x, nodes, nodeTypes, least_squares=True, triangulation=False, epsilon=0)
         # edges = remove_unused_landmark(edges, unused_lm) # For later implementation
         lut, x = update_info(nodes)
 
@@ -130,13 +130,13 @@ def load_g2o_graph(filename, noBearing=True):#, firstMeas=True):
     print('Loaded graph with {} nodes and {} edges'.format(len(graph.nodes), len(graph.edges)))
     print('\n')
 
-    from run_slam import Graph
+    # from run_slam import Graph
     
-    graph = Graph(x, nodes, edges, lut, nodeTypes)
+    # graph = Graph(x, nodes, edges, lut, nodeTypes)
     
-    print('Loaded graph with {} nodes and {} edges'.format(
-        len(graph.nodes), len(graph.edges)))
-    print('\n')
+    # print('Loaded graph with {} nodes and {} edges'.format(
+    #     len(graph.nodes), len(graph.edges)))
+    # print('\n')
 
     return graph
 
@@ -220,15 +220,17 @@ def qualified_guess(edges, lut, x, nodes, nodeTypes, least_squares: bool, triang
 
             landmark = np.array([Xl[0,0], Xl[1,0]], dtype=np.float64)
 
+            
             nodeType = 'VXY'
             nodeId = ID
             nodes[nodeId] = landmark
             nodeTypes[nodeId] = nodeType
+            
         else:
             unused_lm.append(ID)
 
         del m
-
+   
     return nodes, nodeTypes, unused_lm
     
 

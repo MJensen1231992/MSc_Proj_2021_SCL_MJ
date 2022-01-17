@@ -3,7 +3,7 @@ from numpy.linalg import inv
 from utils.helper import vec2trans, trans2vec, wrap2pi
 import math
 
-def compute_global_error(graph, noBearing: bool = False):
+def compute_global_error(graph, noBearing: bool = True):
     
     err_Full = 0 
     err_Land = 0

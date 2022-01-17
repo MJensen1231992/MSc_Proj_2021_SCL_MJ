@@ -2,6 +2,7 @@ import numpy as np
 import math
 import pandas as pd
 import matplotlib.pyplot as plt
+import json
 from collections import Counter
 
 def get_poses_landmarks(graph):
@@ -164,7 +165,7 @@ def build_gradient_hessian(b_i, b_j, H_ii, H_ij, H_ji, H_jj,H,b,fromIdx,toIdx, e
         
         b[fromIdx:fromIdx+3] += b_i
         b[toIdx:toIdx+2] += b_j
-
+    
     return H, b
 
 def printPrincipalDiagonal(mat, n):
@@ -177,3 +178,7 @@ def printPrincipalDiagonal(mat, n):
             if (i == j):
                 print(mat[i][j], end = ", ")
     print()
+
+def load_from_json(name):
+    with open(name, 'r') as f:
+        return json.load(f)
