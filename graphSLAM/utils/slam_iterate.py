@@ -12,8 +12,8 @@ warnings.filterwarnings('ignore')
 NOISE_FILENAME = '20211230-132841'
 LAMBDAH = 1
 PHI = 1
-FOV = 120 # Degrees
-LM_RANGE = 15 # Meters
+FOV = 60 # Degrees
+LM_RANGE = 20 # Meters
 ODO_RANGE = 2
 
 
@@ -32,6 +32,7 @@ def graph_slam_run_algorithm(graph, numIter, g_graph, pre_noise):
     filenames = []
     frames = []
     graph_plot(graph,landmarkEdgesPlot=False)
+    # plt.title('Before optimization')
     plt.show()
 
     lambdaH = LAMBDAH
@@ -91,7 +92,7 @@ def graph_slam_run_algorithm(graph, numIter, g_graph, pre_noise):
 
         print(f"|dx| for step {i} : {norm_dX}\n")
 
-        if i >=1 and np.abs(norm_dX_all[transi]-norm_dX_all[i-1]) < tol: 
+        if i >=1 and np.abs(norm_dX_all[i]-norm_dX_all[i-1]) < tol: 
             break
     
 
@@ -109,9 +110,9 @@ def graph_slam_run_algorithm(graph, numIter, g_graph, pre_noise):
     plot_ground_together_noise(graph, g_graph, pre_noise, lm_plot=False)
     
     landmark_ba(graph,g_graph,pre_noise)
-    # color_error_plot(graph, g_graph)
+    color_error_plot(graph, g_graph)
 
-    # A_traj_error(graph, g_graph)
+    A_traj_error(graph, g_graph)
     plot_errors(err_opt_f,e_pose,e_bear,e_land,e_gps)
    
     return norm_dX_all

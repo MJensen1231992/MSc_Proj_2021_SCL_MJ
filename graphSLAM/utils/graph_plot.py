@@ -328,15 +328,19 @@ def landmark_ba(n_graph, g_graph, pre_graph):
     axes[1].legend(['Noisy landmarks','Ground truth landmarks'])
     
     diff_gn = [elem for elem in glm_ID if elem not in nlm_ID]
-
+    print(len(diff_gn))
+    print(len(glm_ID))
+    print(len(nlm_ID))
     corr_glandmarks = np.delete(glandmarks,diff_gn, axis=0)
-    corr_prelandmarks = np.delete(prelandmarks,diff_gn, axis=0)
+    print(len(corr_glandmarks))
+
+    # corr_prelandmarks = np.delete(prelandmarks,diff_gn, axis=0)
     
     diff_ng_abs = np.around(abs(nlandmarks-corr_glandmarks),2)
     diff_ng = np.around((nlandmarks-corr_glandmarks),2)
 
-    diff_pg_abs = np.around(abs(corr_prelandmarks-corr_glandmarks),2)
-    diff_pg = np.around((corr_prelandmarks-corr_glandmarks),2)
+    diff_pg_abs = np.around(abs(prelandmarks-corr_glandmarks),2)
+    diff_pg = np.around((prelandmarks-corr_glandmarks),2)
 
     x = np.expand_dims(diff_ng[:,0],axis = 1)
     y = np.expand_dims(diff_ng[:,1],axis = 1)

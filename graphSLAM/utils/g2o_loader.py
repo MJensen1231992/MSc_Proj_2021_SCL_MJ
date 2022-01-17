@@ -115,8 +115,11 @@ def load_g2o_graph(filename: str, gt: bool, noBearing: bool=True):#, firstMeas=T
     if gt==False and initial_qualified_guess:
         print("Noisy data")
         nodes, nodeTypes, unused_lm = qualified_guess(edges, lut, x, nodes, nodeTypes, least_squares=True, triangulation=False, epsilon=5.0)
+        print(f"unused landmarks:\n{unused_lm}\n")
         edges, nodes, nodeTypes = remove_unused_landmark(edges, nodes, nodeTypes, unused_lm)
         lut, x = update_info(nodes)
+        
+        
 
     from run_slam import Graph
     graph = Graph(x, nodes, edges, lut, nodeTypes)
@@ -145,11 +148,14 @@ def remove_unused_landmark(edges, nodes, nodeTypes, unused_lm):
     # Checking edges (apparently it has to be done twice...?)
     for edge in edges:
         if edge.nodeTo in unused_lm:
+            print(f"edgenodes to:{edge.nodeTo}\n")
             edges.remove(edge)
 
     for edge in edges:
         if edge.nodeTo in unused_lm:
+            print(f"edgenodes new to:{edge.nodeTo}\n")
             edges.remove(edge)
+
 
     # Checking nodes
     for ID, _ in nodes.copy().items():
@@ -169,6 +175,7 @@ def remove_unused_landmark(edges, nodes, nodeTypes, unused_lm):
             if check:
                 del nodeTypes[ID]
 
+   
     return edges, nodes, nodeTypes
 
 def qualified_guess(edges, lut, x, nodes, nodeTypes, least_squares: bool, triangulation: bool, epsilon: float):

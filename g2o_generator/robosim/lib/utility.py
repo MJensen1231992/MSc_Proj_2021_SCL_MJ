@@ -73,8 +73,8 @@ def robot_heading(x, y, theta, color: str, length: float=1, alpha=1):
         """
         Method that plots the heading of every pose
         """
-        dx = np.cos(theta)
-        dy = np.sin(theta)
+        dx = np.cos(theta)*5
+        dy = np.sin(theta)*5
 
         plt.quiver(x, y, dx, dy, color=color, angles='xy', scale_units='xy', scale=length, alpha=alpha)
 

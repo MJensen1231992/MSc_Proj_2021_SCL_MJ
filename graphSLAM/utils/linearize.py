@@ -23,7 +23,7 @@ def information_matrix(graph):
 def linearize_solve(graph, lambdaH: float = 1.0, needToAddPrior=True, dcs=True):#iter: int = 1,
     bearing_E = []
     phi = PHI
-    bob = []
+    dcs_array = []
     
     H, b = information_matrix(graph)
     
@@ -143,7 +143,7 @@ def linearize_solve(graph, lambdaH: float = 1.0, needToAddPrior=True, dcs=True):
             if dcs:
                 s_ij = dynamic_covariance_scaling(error, phi)
                 omega_ij = (s_ij**2)*omega_ij
-                bob.append(s_ij)
+                dcs_array.append(s_ij)
                 
             b_i, b_j, H_ii, H_ij, H_ji, H_jj = calc_gradient_hessian(A, B, omega_ij, error, edgetype='B')
             
@@ -161,7 +161,7 @@ def linearize_solve(graph, lambdaH: float = 1.0, needToAddPrior=True, dcs=True):
     sparse_dxstar = spsolve(H_sparse,-b)
     dX = sparse_dxstar.squeeze()#
     
-    print(bob)
+    
     return dX, H_sparse, H, sparse_dxstar
     
 def get_sparse_size(smatrix):

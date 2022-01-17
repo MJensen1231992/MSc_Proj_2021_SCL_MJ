@@ -26,7 +26,7 @@ class g2o:
 
         # This will only get the bearing to landmarks and not 
         # initialize the g2o file with landmark locations
-        self.bearing_only = False
+        self.bearing_only = True
         self.FOV = np.deg2rad(fov) # Camera field of view of the robot
 
         self.lm_thresh = 3
@@ -36,7 +36,7 @@ class g2o:
         self.time_stamp = time.strftime("%Y%m%d-%H%M%S")
 
         # Corrupt the dataset with outliers
-        self.corrupt_dataset = True
+        self.corrupt_dataset = False
         self.n_outliers = 100
         self.outlier_type = {"random": 1,           # Connect any two randomly sampled nodes in the graph
                              "local": 2,            # Conenct random nodes that ar ein the vincinity of each other
@@ -45,8 +45,8 @@ class g2o:
                              "none": -1}
 
         std_gnss_x = 0.7; std_gnss_y = 0.7
-        std_odo_x = 0.1; std_odo_y = 0.2; std_odo_th = deg2rad(0.1); mu_bias = 0.4
-        std_lm_x = 0.7; std_lm_y = 0.7; self.std_lm_th = deg2rad(1)
+        std_odo_x = 0.1; std_odo_y = 0.1; std_odo_th = deg2rad(1); mu_bias = 0.2
+        std_lm_x = 0.5; std_lm_y = 0.5; self.std_lm_th = deg2rad(2)
 
         # Information matrices: 
         # Odometry
@@ -75,7 +75,7 @@ class g2o:
         # Adding noise to odo route
         self.x, self.y, self.th = zip(*np.asarray_chkfinite(reduced_path, dtype=np.float64))
 
-        load_noise = True # load_noise = True -> You load the same odometry route. False -> you load the same ground truth route and THEN adding noise
+        load_noise = True# load_noise = True -> You load the same odometry route. False -> you load the same ground truth route and THEN adding noise
         if load_noise:
             odometry_noise = load_from_json(odometry_file_noise)
             temp_xN = np.asfarray(odometry_noise[0]); temp_yN = np.asfarray(odometry_noise[1]); temp_thN = np.asfarray(odometry_noise[2])
@@ -138,13 +138,13 @@ class g2o:
                 plt.plot(self.xN, self.yN, label='Odometry')
                 self.plot_outliers()
 
-            # if plot_robot_heading:
-            #     robot_heading(self.x, self.y, self.th, color="blue", length=1)
-            #     robot_heading(self.xN, self.yN, self.thN, color="gray", length=0.5)
-                # robot_heading(lm_x, lm_y, lm_th, color="green", length=0.01, alpha=0.5)
+            if plot_robot_heading:
+                robot_heading(self.x, self.y, self.th, color="blue", length=1)
+                robot_heading(self.xN, self.yN, self.thN, color="gray", length=0.5)
+                robot_heading(lm_x, lm_y, lm_th, color="green", length=0.05, alpha=0.5)
 
-            # plt.plot(self.x, self.y, label='Groundtruth')
-            # plt.plot(self.xN, self.yN, label='Noisy route')
+            plt.plot(self.x, self.y, label='Groundtruth')
+            plt.plot(self.xN, self.yN, label='Noisy route')
 
             # plt.scatter(np.asarray_chkfinite(self.x_gnss), np.asarray_chkfinite(self.y_gnss), marker='x', color='red',
                                                 # label='GPS points')
@@ -167,7 +167,7 @@ class g2o:
 
     def write_basics(self, x, y, theta, xN, yN, thetaN, gt_landmarks, N_landmarks):
 
-        g2oW = open('g2o_generator/robosim/data/g2o/noise_'+self.time_stamp+'.g2o', 'w')
+        g2oW = open('graphSLAM/data/noise_'+self.time_stamp+'.g2o', 'w')
         self.n_landmarks = 0
 
         self.xscale = self.x[0]
@@ -281,7 +281,7 @@ class g2o:
 
 
     def ground_truth(self, x, y, theta, landmarks):
-        g2oWG = open('g2o_generator/robosim/data/g2o/ground_truth_'+self.time_stamp+'.g2o', 'w')
+        g2oWG = open('graphSLAM/data/ground_truth_'+self.time_stamp+'.g2o', 'w')
         n_landmarks = 0
         n_gps = 0
 
