@@ -10,7 +10,7 @@ from lib.utility import *
 
 class world:
     def __init__(self, OSM_polygons: str, OSM_features: str, landmarks: str, set_xlim: list, set_ylim: list, save_path: bool = False,
-                 load_path: bool = False, route_name: str = 'Aarhus_path1.json', GNSS_frequency: int = 10):
+                 load_path: bool = False, route_name: str = 'brbr.json', GNSS_frequency: int = 10):
         """
         csv_info takes in csv file for landmarks and csv file for polygons
         """
@@ -31,13 +31,13 @@ class world:
         self.GNSS_frequency = GNSS_frequency
 
         if self.load_path:
-            loaded_route = load_from_json('./g2o_generator/robosim/data/robopath/'+self.route_name)
+            loaded_route = load_from_json('./g2o_generator/robosim/data/robopath/'+self.route_name+'.json')
             temp_x = np.asfarray(loaded_route[0]); temp_y = np.asfarray(loaded_route[1]); temp_th = np.asfarray(loaded_route[2])
             self.loaded_route = [[pose_x, pose_y, pose_th] for pose_x, pose_y, pose_th in zip(temp_x, temp_y, temp_th)]
 
-            temp_x1, temp_y1, temp_th1 = zip(*self.loaded_route)
-            reduced_path = reduce_dimensions(np.array([temp_x1, temp_y1, temp_th1]), 'half')
-            self.x_odo, self.y_odo, self.th_odo = zip(*reduced_path)
+            # temp_x1, temp_y1, temp_th1 = zip(*self.loaded_route)
+            # reduced_path = reduce_dimensions(np.array([temp_x1, temp_y1, temp_th1]), 'half')
+            self.x_odo, self.y_odo, self.th_odo = zip(*self.loaded_route)
 
 
     # Draw points using mouse for plt figures
@@ -101,8 +101,18 @@ class world:
                 json_path = np.array([x_odo, y_odo, th_odo])
                 json_path1 = json_path.tolist()
                 save_to_json(json_path1,'./g2o_generator/robosim/data/robopath/'+self.route_name+'.json')
+                route_gt = './g2o_generator/robosim/data/robopath/'+self.route_name+'.json'
 
-                return './g2o_generator/robosim/data/robopath/'+self.route_name+'.json'
+                ######################################### Saving noisy rouite for analysis ################################################
+                std_odo_x = 0.1; std_odo_y = 0.2; std_odo_th = deg2rad(0.1); mu_bias = 0.3
+
+                x_odo_N, y_odo_N, th_odo_N = addNoise(x_odo, y_odo, th_odo, std_odo_x, std_odo_y, std_odo_th, mu_bias)
+                json_path_N = np.array([x_odo_N, y_odo_N, th_odo_N])
+                json_path2 = json_path_N.tolist()
+                save_to_json(json_path2,'./g2o_generator/robosim/data/robopath/'+self.route_name+'_noise'+'.json')
+                route_noise = './g2o_generator/robosim/data/robopath/'+self.route_name+'_noise'+'.json'
+
+                return route_gt, route_noise
 
             except:
                 print("No robot path chosen \nLeft-click on plot in window to generate robot path")

@@ -23,21 +23,21 @@ class Graph:
         self.nodeTypes = nodeTypes
 
 class G2O:
-    def __init__(self, filename):
+    def __init__(self, filename, gt):
         
-        self.graph = load_g2o_graph(filename,noBearing=True)
+        self.graph = load_g2o_graph(filename,gt, noBearing=True)
         self.error = compute_global_error(self.graph)
         
 
 
 if __name__ == '__main__' :
 
-    noise = G2O('graphSLAM/data/external/victoriaPark.g2o')
+    noise = G2O('graphSLAM/data/noise_20211221-133202.g2o', gt=False)
     n_graph = noise.graph
     
     
-    # ground = G2O('graphSLAM/data/ground_truth_20220103-121133.g2o')
-    # g_graph = ground.graph
+    ground = G2O('graphSLAM/data/ground_truth_20211221-133202.g2o', gt=True)
+    g_graph = ground.graph
 
     pre_graph = copy.deepcopy(n_graph)
     # poses_per_landmark(n_graph)

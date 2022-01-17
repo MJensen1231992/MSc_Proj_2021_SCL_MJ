@@ -37,5 +37,4 @@ class LeastSquares:
         except:
             Xl = np.linalg.pinv(R) @ q
 
-        
         return Xl

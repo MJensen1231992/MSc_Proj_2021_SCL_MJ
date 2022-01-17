@@ -447,6 +447,9 @@ def statistics_plot(graph):
 
     return
     
+    plt.xticks(np.arange(0, len(values), 5))
+    plt.show()
+    return
 
 def plot_errors(e_full,pose_error,bearing_error,land_error,gps_error):
 
