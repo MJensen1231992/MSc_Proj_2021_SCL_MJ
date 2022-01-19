@@ -41,7 +41,7 @@ def graph_slam_run_algorithm(graph, numIter, g_graph, pre_noise):
         if i>0:
             old_x = graph.x
         
-        error_before, err_pose , err_bearing , err_land, err_gps, _  = compute_global_error(graph)
+        error_before, err_pose , err_bearing , err_land, err_gps = compute_global_error(graph)
         
         err_opt_f.append(error_before)
         e_pose.append(err_pose)
@@ -83,7 +83,6 @@ def graph_slam_run_algorithm(graph, numIter, g_graph, pre_noise):
             frames.append(image)
         
 
-        
 
         diff = np.append(diff,err_diff)
 
@@ -101,18 +100,18 @@ def graph_slam_run_algorithm(graph, numIter, g_graph, pre_noise):
     for filename in set(filenames):
         os.remove('./graphSLAM/utils/figs/'+ filename)
     
-
+    
 
     graph_plot(graph)
-    plt.title('After optimization\n Damping coeff={}, DCS={}, FOV={}'.format(LAMBDAH,PHI,FOV),loc = 'center')
+    plt.title('After optimization\n $\lambda$={}, DCS={}, FOV={}'.format(LAMBDAH,PHI,FOV), loc = 'center')
     graph_plot(pre_noise)
     plt.title('Before optimization')
     plot_ground_together_noise(graph, g_graph, pre_noise, lm_plot=False)
     
     landmark_ba(graph,g_graph,pre_noise)
     color_error_plot(graph, g_graph)
-
+    error_plot(graph, g_graph)
     A_traj_error(graph, g_graph)
-    plot_errors(err_opt_f,e_pose,e_bear,e_land,e_gps)
+    plot_errors(err_opt_f, e_pose, e_bear, e_land, e_gps)
    
     return norm_dX_all

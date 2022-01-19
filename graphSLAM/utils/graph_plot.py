@@ -1,11 +1,12 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from numpy.lib.function_base import diff
 import seaborn as sns
 import pandas as pd
+from matplotlib.ticker import FuncFormatter
 from utils.helper import get_poses_landmarks, vec2trans, trans2vec, load_from_json
 from utils.error import *
 import sys
+
 sys.path.append('g2o_generator/GIS_Extraction')
 
 import csv_reader as GIS
@@ -226,15 +227,18 @@ def plot_ground_together_noise(n_graph, g_graph, pre_graph, lm_plot: bool=False)
                 ax1.annotate(str(ID), xy=(lx, ly), color='b',alpha = 0.8,zorder=13)
                 ax2.annotate(str(ID), xy=(lx, ly), color='b',alpha = 0.8,zorder=13)
 
-    plt.suptitle('Pre and Post Optimization')
+    plt.suptitle('Before and after optimization')
     ax1.axis('equal')
     ax1.set_xlabel('x [m]')
     ax1.set_ylabel('y [m]')
+    ax1.set_title('Before Optimization')
     ax2.axis('equal')
     ax2.set_xlabel('x [m]')
     ax2.set_ylabel('y [m]')
-    ax1.legend(['Ground truth', 'Wheel Odometry'], frameon = False)
-    ax2.legend(['Ground truth','Optimized'], frameon = False)
+    ax2.set_title('After Optimization')
+
+    ax1.legend(['Ground truth', 'Odometry'], frameon = False)
+    ax2.legend(['Ground truth','Odometry'], frameon = False)
     
     plt.show()
     return
@@ -276,11 +280,11 @@ def poses_per_landmark(graph, deg: bool=False):
         ax3.set_xlabel('Bearing [rad]')
 
     ax3.legend(['Bearing count'])
-    ax3.set_title('Bearings to landmarks')
+    ax3.set_title('Bearing angles to landmarks')
 
     plt.show()
     ax4 = sns.histplot(total[:,0], bins=len(l_values))
-    ax4.set_title('Amount of times each unique landmark has been observed')
+    ax4.set_title('Observations per unique landmark')
     ax4.set_xlabel('Landmark ID')
     ax4.legend(['Landmark count'])
 
@@ -334,7 +338,7 @@ def landmark_ba(n_graph, g_graph, pre_graph):
     corr_glandmarks = np.delete(glandmarks,diff_gn, axis=0)
     print(len(corr_glandmarks))
 
-    # corr_prelandmarks = np.delete(prelandmarks,diff_gn, axis=0)
+    corr_prelandmarks = np.delete(prelandmarks,diff_gn, axis=0)
     
     diff_ng_abs = np.around(abs(nlandmarks-corr_glandmarks),2)
     diff_ng = np.around((nlandmarks-corr_glandmarks),2)
@@ -354,28 +358,30 @@ def landmark_ba(n_graph, g_graph, pre_graph):
            ax1.annotate(str(ID), xy=(lx, ly), color='b', alpha = 0.8)
     
     ax2.scatter(diff_pg[:,0], diff_pg[:,1], color = 'r')
-    ax1.set_title('error between noise and ground')
-    ax2.set_title('error between pre and ground')
+    ax1.set_title('Odometry Post and Ground error')
+    ax2.set_title('Odometry Pre and Ground error')
     ax1.set_xlabel('x [m]')
     ax2.set_xlabel('x [m]')
     ax1.set_ylabel('y [m]')
     ax2.set_ylabel('y [m]')
-    leg = ax1.legend(['sum '+str(ng_sum)], handlelength=0, handletextpad=0, fancybox=True)
+    leg = ax1.legend(['sum of landmark errors '+str(ng_sum)], handlelength=0, handletextpad=0, frameon=False)
     for item in leg.legendHandles:
         item.set_visible(False)
-    leg = ax2.legend(['sum '+str(pg_sum)], handlelength=0, handletextpad=0, fancybox=True)
+    leg = ax2.legend(['sum of landmark errors '+str(pg_sum)], handlelength=0, handletextpad=0, frameon=False)
     for item in leg.legendHandles:
         item.set_visible(False)
 
     plt.show()
     
-    row_sum_ng = [sum(x) for x in diff_ng]
+    row_sum_ng = [abs(sum(x)) for x in diff_ng]
     row_ng_lm = np.stack(zip(nlm_ID,row_sum_ng))
     
     df = pd.DataFrame(data = row_ng_lm, columns = ['Landmark ID', 'Sum of x,y error'])
     # # sns.heatmap(x)len()
     # # sns.histplot(diff_ng)#, bins = len(nlandmarks))
-    sns.barplot(data = df, x= 'Landmark ID', y = 'Sum of x,y error')
+    snsb = sns.barplot(data = df, x= 'Landmark ID', y = 'Sum of x,y error')
+    snsb.xaxis.set_major_formatter(FuncFormatter(lambda x, _: int(x)))
+
     plt.show()
     return
 
@@ -401,16 +407,23 @@ def A_traj_error(n_graph, g_graph):
     ATE_rmse = E.mean()
     print(ATE_rmse)
  
-    plt.plot(E[:,0])
+    _, (ax1, ax2, ax3) = plt.subplots(3,1)
+
+    ax1.plot(E[:,0])
+    ax1.set_ylabel('x [m]')
+
+    ax2.plot(E[:,1])
+    ax2.set_ylabel('y [m]')
+
+    ax3.plot(E[:,2])
+    ax3.set_ylabel('$\\theta$ [rad]')
+
+    plt.suptitle('Absolute Trajectory error')
     plt.show()
-    plt.plot(E[:,1])
-    plt.show()
-    plt.plot(E[:,2])
-    plt.show()
-    sns.histplot(E[:,0])
-    plt.show()
-    sns.kdeplot(E[:,0])
-    plt.show()
+    # sns.histplot(E[:,0])
+    # plt.show()
+    # sns.kdeplot(E[:,0])
+    # plt.show()
 
     return
 
@@ -455,25 +468,38 @@ def statistics_plot(graph):
     plt.show()
     return
 
-def plot_errors(e_full,pose_error,bearing_error,land_error,gps_error):
+def plot_errors(e_full, pose_error, bearing_error,land_error,gps_error):
 
     e_pose = np.vstack((pose_error))
 
     if len(pose_error) >0:
         f1, (ax1,ax2,ax3) = plt.subplots(1,3)
-        ax1.plot(e_pose[1:,0], color='g', marker="o", label ='x err')
+        ax1.plot(e_pose[1:,0], color='g', marker="o", label ='x')
         ax1.legend(loc="upper right")
-        ax2.plot(e_pose[1:,1], color='b', marker="o", label ='y err')
+        plt.ylabel('Abs error')
+        ax2.plot(e_pose[1:,1], color='b', marker="o", label ='y')
+        plt.xlabel('iteration')
         ax2.legend(loc="upper right")
         ax3.plot(e_pose[1:,2], color='r', marker="o", label ='$\\theta$')
         ax3.legend(loc="upper right")
+
+   
+    
+    plt.suptitle('Full error')
+        
     
     if len(bearing_error)>0:
-        ax4 = sns.relplot(data = bearing_error, kind="line", ci = 100)
+
+        _, ax4 = plt.subplots()
+        ax4.plot(bearing_error, color='b', marker="o", label ='bearing error')
+    # ax4 = sns.relplot(data = bearing_error, kind="line", ci = 100, label = 'yeeeeet')
+        ax4.set_title('Bearing error')
+        
         #ax4.plot(bearing_error, label = 'bearing error')
         #ax4.legend()
+        
     
-    if len(land_error)>1:
+    if len(land_error)>0:
         e_land = np.abs(np.vstack((land_error))) 
         _, (ax5,ax6) = plt.subplots(1,2)
         ax5.plot(e_land[:,0], label ='x land error')
@@ -490,7 +516,7 @@ def plot_errors(e_full,pose_error,bearing_error,land_error,gps_error):
         ax8.legend()
 
     _, ax9 = plt.subplots()
-    ax9.plot(e_full, label = 'full error')
+    ax9.plot(e_full, color='b', marker="o",label = 'full error')
     ax9.legend()
  
     plt.show()
@@ -507,7 +533,7 @@ def color_error_plot(n_graph,g_graph):
     _, ax = plt.subplots()
 
     e = np.sum(np.abs((gposes[:,:2]-nposes[:,:2])),axis=1)
-    print(e)
+    # print(e)
     x = nposes[:,0]
     y = nposes[:,1]
     xg = gposes[:,0]
@@ -515,23 +541,30 @@ def color_error_plot(n_graph,g_graph):
 
     bob = ax.scatter(x,y,c=e, cmap="viridis", alpha=0.8)
     cbar = plt.colorbar(bob)
-    cbar.set_label('Absolute x, y error', rotation = 270)
+    cbar.set_label('Absolute x, y error', rotation = 270, fontsize = 12)
     cbar.ax.get_yaxis().labelpad = 15
 
     ax.plot(x,y, 'b-')
     ax.plot(xg,yg, 'k--')
-    ax.legend(['Noise','Ground'])
-    plt.title('Error plotted onto noisy route')
-    plt.xlabel('x [m]')
-    plt.ylabel('y [m]')
+    ax.legend(['Odometry','Ground'])
+    plt.title('Odometry error', fontsize = 16)
+    plt.xlabel('x [m]', fontsize = 12)
+    plt.ylabel('y [m]', fontsize = 12)
     plt.axis('equal')
     plt.show()
 
+    # print(f"e is  {e}")
+    plt.plot(e)
+    plt.title('error bob 1')
+    plt.show()
+    # plt.plot(e[:1])
+    # plt.title('error bob 2')
+    # plt.show()
     
     return
     
     
-def error_plot(g_graph, n_graph):
+def error_plot(n_graph,g_graph):
 
     gposes, _, _, _ = get_poses_landmarks(g_graph)
     nposes, _, _, _ = get_poses_landmarks(n_graph)
@@ -556,14 +589,14 @@ def error_plot(g_graph, n_graph):
     ax1.plot(np.abs(diff[:,0]), color = 'r')
     ax2.plot(np.abs(diff[:,1]), color = 'r')
     ax3.plot(np.abs(diff[:,2]), color = 'r')
-    ax1.legend(['Ground truth','Noisy','Abs error'], frameon=False)
+    ax1.legend(['Ground truth','Odometry','Abs error'], frameon=False)
     ax1.set_ylabel('x [m]')
     # ax2.legend(['Ground truth','Noisy','Error(diff)'])
     ax2.set_ylabel('y [m]')
     # ax3.legend(['Ground truth','Noisy','Error(diff)'])
     ax3.set_ylabel('$\\theta$ [rad]')
     
-    plt.suptitle('Pose error between Noise and Ground truth')
+    plt.suptitle('Pose error between Odometry and Ground truth')
     plt.show()
 
 
@@ -583,6 +616,7 @@ def plot_map(n_graph, g_graph):
 
     axs.set_xlim([574730, 575168])
     axs.set_ylim([6222350, 6222750])
+
 
     if len(nposes) > 0:
         nposes = np.stack(nposes, axis=0) # axis = 0 turns into integers/slices and not tuple
