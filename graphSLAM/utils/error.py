@@ -10,7 +10,7 @@ def compute_global_error(graph):
     err_Bearing = 0
     err_Land = 0
     err_GPS = 0
-   
+    err_Landnoabs = 0
 
 
     for edge in graph.edges:
@@ -52,6 +52,8 @@ def compute_global_error(graph):
 
             err_Full += np.linalg.norm((wrap2pi(wrap2pi((r_l_angle-theta_i))-z_bearing)))
             err_Bearing += np.abs(wrap2pi(wrap2pi((r_l_angle-theta_i))-z_bearing))
+            # print(f"err full bearing:\n{err_Full}")
+            # print(f"err bearing:\n{err_Bearing}")
            
             
         elif edge.Type == 'L':
@@ -59,18 +61,19 @@ def compute_global_error(graph):
             fromIdx = graph.lut[edge.nodeFrom]
             toIdx = graph.lut[edge.nodeTo]
 
-            x = graph.x[fromIdx:fromIdx+3]
-            l = graph.x[toIdx:toIdx+2]
-            z = edge.poseMeasurement
+            x_i = graph.x[fromIdx:fromIdx+3] #robot pose
+            x_j = graph.x[toIdx:toIdx+2] # landmark pose
 
-            R_xi = vec2trans(x)[:2, :2]
-            l = l.reshape(2,1)
-            t_i = x[:2]
-            z = np.expand_dims(z,axis=1)
+            z_ij = edge.poseMeasurement # measurement
 
-            err_Full += np.linalg.norm(np.dot(R_xi.T,(l-t_i))-z)
-            err_Land += np.dot(R_xi.T,(l-t_i))-z
-            
+            t_i = x_i[:2].reshape(2,1)#translation part robot translation
+            x_l = x_j.reshape(2,1)#landmark pose
+            z_il = z_ij.reshape(2,1)
+            R_i = vec2trans(x_i)[:2, :2]
+
+            err_Full +=  np.linalg.norm(np.dot(R_i.T, x_l-t_i) - z_il)
+            err_Land +=  np.abs(np.dot(R_i.T, x_l-t_i) - z_il)
+        
             
         elif edge.Type == 'G':
             

@@ -142,15 +142,12 @@ def update_info(nodes):
 def remove_unused_landmark(edges, nodes, nodeTypes, unused_lm):
 
     # Checking edges (apparently it has to be done twice...?)
-    for edge in edges:
+    for edge in edges.copy():
         if edge.nodeTo in unused_lm:
             print(f"edgenodes to:{edge.nodeTo}\n")
             edges.remove(edge)
 
-    for edge in edges:
-        if edge.nodeTo in unused_lm:
-            print(f"edgenodes new to:{edge.nodeTo}\n")
-            edges.remove(edge)
+
 
     # Checking nodes
     for ID, _ in nodes.copy().items():

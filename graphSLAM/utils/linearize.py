@@ -23,7 +23,7 @@ def linearize_solve(graph, lambdaH: float = 1.0, needToAddPrior=True, dcs=True):
     H, b = information_matrix(graph)
     
     for edge in graph.edges:
-        
+    
         if edge.Type == 'P':
             
             fromIdx = graph.lut[edge.nodeFrom]
@@ -64,7 +64,7 @@ def linearize_solve(graph, lambdaH: float = 1.0, needToAddPrior=True, dcs=True):
             omega_ij = edge.information
 
             error , A, B = pose_landmark_constraints(x_i, x_j, z_ij)
-            
+            # print(f"this is lin landmark error{error}")
             if dcs:
                 s_ij = dynamic_covariance_scaling(error, phi)
                 omega_ij = (s_ij**2)*omega_ij
@@ -141,7 +141,7 @@ def linearize_solve(graph, lambdaH: float = 1.0, needToAddPrior=True, dcs=True):
     sparse_dxstar = spsolve(H_sparse,-b)
     dX = sparse_dxstar.squeeze()
 
-    return dX, H_sparse, H, sparse_dxstar
+    return dX, H_sparse, H, dcs_array
     
 def get_sparse_size(smatrix):
     # get size in kB of sparse and reg matrix
