@@ -3,8 +3,10 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
 from matplotlib.ticker import FuncFormatter
+from mpl_toolkits import mplot3d
 from utils.helper import get_poses_landmarks, vec2trans, trans2vec, load_from_json
 from utils.error import *
+
 import sys
 
 sys.path.append('g2o_generator/GIS_Extraction')
@@ -12,8 +14,6 @@ sys.path.append('g2o_generator/GIS_Extraction')
 import csv_reader as GIS
 
 sns.set(rc={'figure.figsize':(12, 6)} )
-
-# sns.set_style("darkgrid", {"axes.facecolor": ".9"})
 
 def graph_plot(graph, pregraph, animate = False, poseEdgesPlot = True, landmarkEdgesPlot = False, gpsEdgesPlot = False, ontop = False):
     
@@ -28,7 +28,7 @@ def graph_plot(graph, pregraph, animate = False, poseEdgesPlot = True, landmarkE
     #plot poses and landmarks if exits
     if len(poses) > 0:
         poses = np.stack(poses, axis=0) # axis = 0 turns into integers/slices and not tuple
-        plt.plot(poses[:,0], poses[:,1], color='royalblue', alpha = 1, marker='o', markersize=4,label = 'Post Optimization',zorder = 2)
+        plt.plot(poses[:,0], poses[:,1], color='royalblue', marker='o', markersize=4,label = 'Post Optimization',zorder = 2)
         #plt.quiver(poses[:,0], poses[:,1], np.cos(poses[:,2]),np.sin(poses[:,2]), angles= 'xy',scale=0.5)
     
     if ontop:
@@ -129,7 +129,6 @@ def graph_plot(graph, pregraph, animate = False, poseEdgesPlot = True, landmarkE
 
     if len(landmarks) > 0 and edge.Type == 'B':
         
-        
         bearingEdgesFrom = np.stack(bearingEdgesFrom, axis = 0)
         bearingEdgesTo = np.stack(bearingEdgesTo, axis = 0)
         
@@ -185,6 +184,8 @@ def graph_plot(graph, pregraph, animate = False, poseEdgesPlot = True, landmarkE
 
         plt.axis('equal')
         plt.xlabel('x (m)', fontsize="x-large")
+        plt.xticks(fontsize=14)
+        plt.yticks(fontsize=14)
         plt.ylabel('y (m)', fontsize="x-large")
         plt.legend(frameon=False,loc='lower center', ncol=5, fontsize = 14)
 
@@ -249,10 +250,14 @@ def plot_ground_together_noise(n_graph, g_graph, pre_graph, lm_plot: bool=False)
     ax2.axis('equal')
     ax2.set_xlabel('x (m)', fontsize="x-large")
     ax2.set_ylabel('y (m)', fontsize="x-large")
+
     # ax2.set_title('After Optimization')
 
     ax1.legend(['Ground truth', 'Odometry'], frameon = False, loc = 'upper left', fontsize = 14)
     ax2.legend(['Ground truth','Odometry'], frameon = False, loc = 'upper left',fontsize = 14)
+
+    plt.xticks(fontsize=14)
+    plt.yticks(fontsize=14)
     plt.tight_layout()
 
     plt.savefig("results/Owndata/ground_Together.png")
@@ -287,9 +292,11 @@ def poses_per_landmark(graph, deg: bool=False, pre: bool=False):
     if deg:
         ax3 = sns.histplot(np.rad2deg(total[:,1]), bins=len(l_values))
         ax3.set_xlabel('Bearing (deg)')
+        plt.xticks(fontsize=14)
+        plt.yticks(fontsize=14)
         plt.tight_layout()
 
-        ax3.savefig("results/Owndata/bearingcount.png")
+        
 
     else:
         ax3 = sns.histplot((total[:,1]), bins=len(l_values), color = 'royalblue')
@@ -302,22 +309,33 @@ def poses_per_landmark(graph, deg: bool=False, pre: bool=False):
     ax3.legend(['Bearing count'],frameon=False)
     # ax3.set_title('Bearing angles to landmarks')
     if pre:
+        plt.xticks(fontsize=14)
+        plt.yticks(fontsize=14)
         plt.tight_layout()
-
+        
         plt.savefig("results/Owndata/bearingcountpre.png")
     else:
+        plt.xticks(fontsize=14)
+        plt.yticks(fontsize=14)
         plt.tight_layout()
 
         plt.savefig("results/Owndata/bearingcountpost.png")
+
     plt.show()
+
+
     ax4 = sns.histplot(total[:,0], bins=len(l_values), color = 'royalblue')
     # ax4.set_title('Observations per unique landmark')
     ax4.set_xlabel('Landmark ID')
     ax4.legend(['Landmark count'],frameon=False)
     if pre:
+        plt.xticks(fontsize=14)
+        plt.yticks(fontsize=14)
         plt.tight_layout()
         plt.savefig("results/Owndata/Landmarkcountpre.png")
     else:
+        plt.xticks(fontsize=14)
+        plt.yticks(fontsize=14)
         plt.tight_layout()
         plt.savefig("results/Owndata/Landmarkcountpost.png")
 
@@ -353,8 +371,8 @@ def landmark_ba(n_graph, g_graph, pre_graph):
         axes[0].scatter(glandmarks[:,0], glandmarks[:,1], marker='*', color='forestgreen', alpha=0.8, s=120, zorder=10)
         axes[1].scatter(glandmarks[:,0], glandmarks[:,1], marker='*', color='forestgreen', alpha=0.8, s=120, zorder=10)
         for lx, ly, ID in zip(glandmarks[:,0], glandmarks[:,1], glm_ID):
-            axes[0].annotate(str(ID), xy=(lx, ly), color='b', alpha = 0.8, zorder=10)
-            axes[1].annotate(str(ID), xy=(lx, ly), color='b', alpha = 0.8, zorder=10)
+            axes[0].annotate(str(ID), xy=(lx, ly), color='forestgreen', alpha = 0.8, zorder=10)
+            axes[1].annotate(str(ID), xy=(lx, ly), color='forestgreen', alpha = 0.8, zorder=10)
 
 
 
@@ -368,15 +386,18 @@ def landmark_ba(n_graph, g_graph, pre_graph):
     axes[1].axis('equal')
     axes[0].legend(['Pre Optimization','Ground truth landmarks'], frameon=False, loc = 'upper left', fontsize=14)
     axes[1].legend(['Post Optimization','Ground truth landmarks'],frameon=False, loc = 'upper left', fontsize=14)
+    plt.xticks(fontsize=14)
+    plt.yticks(fontsize=14)
     plt.tight_layout()
     plt.savefig("results/Owndata/landmarkpositionsbeforeafter.png")
 
     diff_gn = [elem for elem in glm_ID if elem not in nlm_ID]
-    
+    diff_gp = [elem for elem in prelm_ID if elem not in nlm_ID]
     corr_glandmarks = np.delete(glandmarks,diff_gn, axis=0)
-    corr_prelandmarks = np.delete(prelandmarks,diff_gn, axis=0)
+    corr_prelandmarks = np.delete(prelandmarks,diff_gp, axis=0)
     
-    
+    print(len(corr_glandmarks))
+    print(len(corr_glandmarks))
     diff_ng = np.around((nlandmarks-corr_glandmarks),2)
     diff_pg = np.around((corr_prelandmarks-corr_glandmarks),2)
 
@@ -384,14 +405,14 @@ def landmark_ba(n_graph, g_graph, pre_graph):
     yn = np.expand_dims(diff_ng[:,1],axis = 1)
     xp = np.expand_dims(diff_pg[:,0],axis = 1)
     yp = np.expand_dims(diff_pg[:,1],axis = 1)
-    xn_sum = round(np.sum(np.abs(xn)),2)
-    yn_sum = round(np.sum(np.abs(yn)),2)
-    xp_sum = round(np.sum(np.abs(xp)),2)
-    yp_sum = round(np.sum(np.abs(yp)),2)
+    xn_sum = round(np.mean(np.abs(xn)),2)
+    yn_sum = round(np.mean(np.abs(yn)),2)
+    xp_sum = round(np.mean(np.abs(xp)),2)
+    yp_sum = round(np.mean(np.abs(yp)),2)
 
-    print(f"landmark{xn_sum}, {yn_sum}, {xp_sum}, {yp_sum}")
-    ng_sum = round(np.sum(np.abs(diff_ng)),2)
-    pg_sum = round(np.sum(np.abs(diff_pg)),2)
+    # print(f"landmark{xn_sum}, {yn_sum}, {xp_sum}, {yp_sum}")
+    ng_sum = round(np.mean(np.abs(diff_ng)),2)
+    pg_sum = round(np.mean(np.abs(diff_pg)),2)
 
 
     fig1, ax1 = plt.subplots()    
@@ -409,20 +430,12 @@ def landmark_ba(n_graph, g_graph, pre_graph):
     # ax2.set_xlabel('x (m)', fontsize = 14)
     ax1.set_ylabel('y (m)', fontsize="x-large")
     ax1.legend(frameon=False,fontsize = 14)
-    # ax2.set_ylabel('y (m)', fontsize = 14)
-    # ax1.axis('equal')
-    # ax1.axis('equal')
-    # ax1.legend(loc="upper right",frameon=False, fontsize = 14)
-    # ax2.legend(loc="upper right",frameon=False, fontsize = 14)
-    # leg = ax1.legend(['sum of landmark errors '+str(ng_sum)], handlelength=0, handletextpad=0, frameon=False)
-    # for item in leg.legendHandles:
-    #     item.set_visible(False)
-    # leg = ax2.legend(['sum of landmark errors '+str(pg_sum)], handlelength=0, handletextpad=0, frameon=False)
-    # for item in leg.legendHandles:
-    #     item.set_visible(False)
+    print((xn_sum,yn_sum,xp_sum,yp_sum))
     np.savetxt("results/Owndata/ng_pg_sum.txt", (ng_sum,pg_sum), fmt="%s")
     np.savetxt("results/Owndata/xy_landmark_sum_post_pre.txt", (xn_sum,yn_sum,xp_sum,yp_sum), fmt="%s")
     print(f"Noisy landmark sum:\n{ng_sum}\n Pre landmark sum:\n{pg_sum}")
+    plt.xticks(fontsize=14)
+    plt.yticks(fontsize=14)
     plt.tight_layout()
     plt.savefig("results/Owndata/landmarkerror_pre_post.png")
     plt.axis('equal')
@@ -436,6 +449,8 @@ def landmark_ba(n_graph, g_graph, pre_graph):
     # # sns.histplot(diff_ng)#, bins = len(nlandmarks))
     snsb = sns.barplot(data = df, x= 'Landmark ID', y = 'Sum of x,y error (m)', color = 'royalblue')
     snsb.xaxis.set_major_formatter(FuncFormatter(lambda x, _: int(x)))
+    plt.xticks(fontsize=14)
+    plt.yticks(fontsize=14)
     plt.tight_layout()
     plt.savefig("results/Owndata/landmarkerrorsum.png")
 
@@ -530,17 +545,20 @@ def statistics_plot(graph):
 def plot_errors(e_full, pose_error, bearing_error,land_error,gps_error):
 
     e_pose = np.vstack((pose_error))
-
     if len(pose_error) >0:
         f1, (ax1,ax2,ax3) = plt.subplots(1,3,sharex = True)
         ax1.plot(e_pose[1:,0], color='forestgreen', marker="o", label ='x')
         ax1.legend(loc="upper right", fontsize = 14,frameon=False)
         ax1.set_ylabel('Absolute error (m)', fontsize="x-large")
         ax2.plot(e_pose[1:,1], color='royalblue', marker="o", label ='y')
+        ax2.set_ylabel('Absolute error (m)', fontsize="x-large")
         ax2.legend(loc="upper right", fontsize = 14,frameon=False)
         ax3.plot(e_pose[1:,2], color='firebrick', marker="o", label ='$\\theta$')
+        ax3.set_ylabel('Absolute error (rad)', fontsize="x-large")
         ax3.legend(loc="upper right", fontsize = 14,frameon=False)
         ax2.set_xlabel('Iteration', fontsize="x-large")
+        plt.xticks(fontsize=14)
+        plt.yticks(fontsize=14)
         plt.tight_layout()
         plt.savefig("results/Owndata/pose_error_split.png")
 
@@ -552,6 +570,8 @@ def plot_errors(e_full, pose_error, bearing_error,land_error,gps_error):
         _, ax4 = plt.subplots()
         ax4.plot(bearing_error, color='royalblue', marker="o", label ='Bearing error')
         ax4.legend(fontsize=14)
+        plt.xticks(fontsize=14)
+        plt.yticks(fontsize=14)
         plt.tight_layout()
         plt.savefig("results/Owndata/bearing_error.png")
 
@@ -575,6 +595,8 @@ def plot_errors(e_full, pose_error, bearing_error,land_error,gps_error):
         ax5.set_xlabel('Iteration')
         ax5.set_xticks(range(len(e_land)))
         ax5.legend(fontsize=14,frameon=False)
+        plt.xticks(fontsize=14)
+        plt.yticks(fontsize=14)
         plt.tight_layout()
         plt.savefig("results/Owndata/land_error_log.png")
 
@@ -589,7 +611,9 @@ def plot_errors(e_full, pose_error, bearing_error,land_error,gps_error):
     _, ax9 = plt.subplots()
     ax9.plot(e_full, color='royalblue', marker="o")#,label = 'Full error')
     ax9.set_xlabel('Iteration', fontsize="x-large")
-    ax9.set_ylabel('Absolute error (m)', fontsize="x-large")
+    ax9.set_ylabel('Absolute error', fontsize="x-large")
+    plt.xticks(fontsize=14)
+    plt.yticks(fontsize=14)
     plt.tight_layout()
     plt.savefig("results/Owndata/pose_error_full.png")
 
@@ -609,7 +633,10 @@ def color_error_plot(n_graph,g_graph):
 
     _, ax = plt.subplots()
 
+    # e = np.sum(np.abs((gposes[:,:2]-nposes[:,:2])),axis=1)
+
     e = np.sum(np.abs((gposes[:,:2]-nposes[:,:2])),axis=1)
+
     # print(e)
     x = nposes[:,0]
     y = nposes[:,1]
@@ -621,12 +648,14 @@ def color_error_plot(n_graph,g_graph):
     cbar.set_label('Absolute x, y error', rotation = 270, fontsize="x-large")
     cbar.ax.get_yaxis().labelpad = 15
 
-    ax.plot(x,y, 'royalblue')
-    ax.plot(xg,yg, 'forestgreen',linestyle = 'dashed')
-    ax.legend(['Odometry','Ground'], fontsize = 14)
+    # ax.plot(x,y, 'royalblue')
+    # ax.plot(xg,yg, 'forestgreen',linestyle = 'dashed')
+    # ax.legend(['Odometry','Ground'], fontsize = 14)
     # plt.title('Odometry error', fontsize = 16)
     plt.xlabel('x (m)', fontsize="x-large")
     plt.ylabel('y (m)', fontsize="x-large")
+    plt.xticks(fontsize=14)
+    plt.yticks(fontsize=14)
     plt.axis('equal')
     plt.tight_layout()
     plt.savefig("results/Owndata/error_color_route.png")
@@ -634,8 +663,12 @@ def color_error_plot(n_graph,g_graph):
     plt.show()
 
     # print(f"e is  {e}")
-    plt.plot(e, label = 'error')
-    plt.legend()
+    error_direct = np.sum(np.abs((gposes-nposes)),axis=1)
+    # np.savetxt("results/Owndata/error_pose_split_check.txt", error_direct, fmt="%s")
+    plt.plot(error_direct, label = 'Error')
+    plt.legend(frameon=False, fontsize = 14)
+    plt.xticks(fontsize=14)
+    plt.yticks(fontsize=14)
     plt.tight_layout()
     plt.savefig("results/Owndata/error_basic.png")
 
@@ -667,6 +700,7 @@ def error_plot(n_graph,g_graph,pre_graph):
     for i in range(len(diffng[:,2])):
 
         diffng[i,2]= wrap2pi((diffng[i,2]))
+        # nposes[i,2] = wrap2pi((nposes[i,2]))
 
     ax1.plot(gposes[:,0], color = 'forestgreen',linestyle = 'dashed')
     ax2.plot(gposes[:,1], color = 'forestgreen',linestyle = 'dashed')
@@ -680,15 +714,17 @@ def error_plot(n_graph,g_graph,pre_graph):
     ax2.plot(pre_poses[:,1], color = 'firebrick')
     ax3.plot(pre_poses[:,2], color = 'firebrick')
 
-    ax1.plot(np.abs(diffng[:,0]), color = 'y')
-    ax2.plot(np.abs(diffng[:,1]), color = 'y')
-    ax3.plot(np.abs(diffng[:,2]), color = 'y')
-    ax1.legend(['Ground truth','Post Optimization', 'Pre Optimization','Abs error'], frameon=False, fontsize = 14, loc = 'lower left')
+    ax1.plot(np.abs(diffng[:,0]), color = 'yellow')
+    ax2.plot(np.abs(diffng[:,1]), color = 'yellow')
+    ax3.plot(np.abs(diffng[:,2]), color = 'yellow')
+    ax1.legend(['Ground truth','Post Optimization', 'Pre Optimization','Abs error'], frameon=False, fontsize = 14)
     ax1.set_ylabel('x (m)', fontsize="x-large")
     # ax2.legend(['Ground truth','Noisy','Error(diff)'])
     ax2.set_ylabel('y (m)', fontsize="x-large")
     # ax3.legend(['Ground truth','Noisy','Error(diff)'])
     ax3.set_ylabel('$\\theta$ (rad)', fontsize="x-large")
+    plt.xticks(fontsize=14)
+    plt.yticks(fontsize=14)
     plt.tight_layout()
     plt.savefig("results/Owndata/full_diff_errorplot.png")
 
@@ -707,8 +743,8 @@ def dcs_arrayplot(dcs_array):
 
 
 
-def plot_map(n_graph, g_graph):
-    odometry_file = 'g2o_generator/robosim/data/robopath/route1test120.json'
+def plot_map(n_graph, g_graph, post:bool = True):
+    odometry_file = 'g2o_generator/robosim/data/robopath/fullroute120.json'
     odometry = load_from_json(odometry_file)
 
     temp_x = np.asfarray(odometry[0]); temp_y = np.asfarray(odometry[1]); temp_th = np.asfarray(odometry[2])
@@ -726,13 +762,17 @@ def plot_map(n_graph, g_graph):
     axs.set_aspect('equal', 'datalim')
     if len(nposes) > 0:
         nposes = np.stack(nposes, axis=0) # axis = 0 turns into integers/slices and not tuple
-        axs.plot(nposes[:,0]+temp_x[0], nposes[:,1]+temp_y[0], 'royalblue',label = 'Odometry route')
+        if post:
+            axs.plot(nposes[:,0]+temp_x[0], nposes[:,1]+temp_y[0], 'royalblue',label = 'Odometry route')
+        else:
+            axs.plot(nposes[:,0]+temp_x[0], nposes[:,1]+temp_y[0], 'firebrick',label = 'Odometry route')
 
     if len(gposes) > 0:
         gposes = np.stack(gposes, axis=0) # axis = 0 turns into integers/slices and not tuple
         axs.plot(gposes[:,0]+temp_x[0], gposes[:,1]+temp_y[0], 'forestgreen', linestyle = 'dashed', label = 'Ground truth')
     axs.set_xlabel('x (m)', fontsize="x-large")
     axs.set_ylabel('y (m)', fontsize="x-large")
+    
     axs.legend(fontsize = 14, frameon = False)
 
     filenamePoints = 'g2o_generator/GIS_Extraction/data/aarhus_features_v2.csv'
@@ -749,6 +789,8 @@ def plot_map(n_graph, g_graph):
         axs.fill(x_casc, y_casc, alpha=0.5, fc='b', ec='none')
 
     # aarhus.plot_landmarks(landmarks)
+    plt.xticks(fontsize=14)
+    plt.yticks(fontsize=14)
     plt.tight_layout()
 
     plt.savefig("results/Owndata/map_plot.png")
@@ -806,3 +848,52 @@ def multiple_formatter(denominator=4, number=np.pi, latex='\pi'):
             else:
                 return r'$\frac{%s%s}{%s}$'%(num,latex,den)
     return _multiple_formatter
+
+
+def color_error_plot3d(n_graph,g_graph):
+
+    gposes, _, _, _ = get_poses_landmarks(g_graph)
+    nposes, _, _, _ = get_poses_landmarks(n_graph)
+    nposes = np.stack(nposes, axis=0)
+    gposes = np.stack(gposes, axis=0)
+
+    fig = plt.figure(figsize=plt.figaspect(0.5))
+    ax = plt.axes(projection='3d')
+
+    # e = np.sum(np.abs((gposes[:,:2]-nposes[:,:2])),axis=1)
+
+    e = np.sum(np.abs((gposes[:,:2]-nposes[:,:2])),axis=1)
+
+    # print(e)
+    x = nposes[:,0]
+    y = nposes[:,1]
+    xg = gposes[:,0]
+    yg = gposes[:,1]
+
+    zline = np.linspace(0, 10, len(gposes))
+
+    # bob = ax.scatter3D(x,y,c=e, cmap="viridis", alpha=0.8)
+    # cbar = plt.colorbar(bob)
+    # cbar.set_label('Absolute x, y error', rotation = 270, fontsize="x-large")
+    # cbar.ax.get_yaxis().labelpad = 15
+
+    k = ax.scatter3D(x,y,zline,c=e,cmap='viridis', alpha=0.5)
+    cbar = plt.colorbar(k)
+    cbar.set_label('Absolute x, y error', rotation = 270, fontsize="x-large")
+    cbar.ax.get_yaxis().labelpad = 15
+
+    # ax.plot(x,y, 'royalblue')
+    # ax.plot(xg,yg, 'forestgreen',linestyle = 'dashed')
+
+    # ax.legend(frameon=False, fontsize = 14)
+    # # plt.title('Odometry error', fontsize = 16)
+    plt.xlabel('x (m)', fontsize="x-large")
+    plt.ylabel('y (m)', fontsize="x-large")
+    # ax.set_zlabel('y (m)', fontsize="x-large")
+    plt.xticks(fontsize=14)
+    plt.yticks(fontsize=14)
+    
+    plt.tight_layout()
+    plt.savefig("results/Owndata/color_ploterror3D.png")
+
+    plt.show()

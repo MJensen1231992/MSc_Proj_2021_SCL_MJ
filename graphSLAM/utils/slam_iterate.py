@@ -10,8 +10,8 @@ import os
 warnings.filterwarnings('ignore')
 
 NOISE_FILENAME = '20211230-132841'
-LAMBDAH = 1e-1
-PHI = 0.2
+LAMBDAH = 1
+PHI = 1
 FOV = 120 # Degrees
 LM_RANGE = 20 # Meters
 ODO_RANGE = 2 #
@@ -19,7 +19,7 @@ ODO_RANGE = 2 #
 
 def graph_slam_run_algorithm(graph, numIter, g_graph, pre_noise):
 
-    tol = 1e-4# If error difference is smaller than tolerance it breaks.
+    tol = 1e-10# If error difference is smaller than tolerance it breaks.
     norm_dX_all = []
     err_opt_f = []
     err_diff = []
@@ -28,7 +28,8 @@ def graph_slam_run_algorithm(graph, numIter, g_graph, pre_noise):
     e_bear = []
     e_land = []
     e_gps = []
-    
+    e_direct = []
+    iter = []
     filenames = []
     frames = []
 
@@ -50,9 +51,12 @@ def graph_slam_run_algorithm(graph, numIter, g_graph, pre_noise):
         err_opt_f.append(error_before)
         e_pose.append(err_pose)
         e_bear.append(err_bearing)
+        # print(f"bearing error array: \n {e_bear}\n")
+        # print(f"pose error array: \n{err_opt_f}\n")
         # e_land.append(err_land.reshape(1,2))
         # e_gps.append(err_gps)
-
+        e_dir = error_direct_calc(graph, g_graph)
+        e_direct.append(e_dir)
         from utils.linearize import linearize_solve
         
         dX, _, _, dcs_array = linearize_solve(graph,lambdaH=lambdaH)
@@ -67,7 +71,7 @@ def graph_slam_run_algorithm(graph, numIter, g_graph, pre_noise):
                 graph.x = old_x
                 lambdaH *= 2
             else:
-                lambdaH /= 10
+                lambdaH /= 2
 
 
         # graph_plot(graph, pre_noise)
@@ -80,12 +84,12 @@ def graph_slam_run_algorithm(graph, numIter, g_graph, pre_noise):
         # plt.close()
 
         # with imageio.get_writer('hej.gif', mode='I') as writer:
-            # for filename in filenames:
-            #     image = imageio.imread('./graphSLAM/utils/figs/'+ filename)
-            #     # image = imageio.imread(filename)
+        #     for filename in filenames:
+        #         image = imageio.imread('./graphSLAM/utils/figs/'+ filename)
+        #         # image = imageio.imread(filename)
                 
-            #     writer.append_data(image)
-            # frames.append(image)
+        #         writer.append_data(image)
+        #     frames.append(image)
         
 
 
@@ -93,10 +97,11 @@ def graph_slam_run_algorithm(graph, numIter, g_graph, pre_noise):
 
         norm_dX = np.linalg.norm(dX)
         norm_dX_all.append(norm_dX)
-
+        iter.append(i)
         print(f"|dx| for step {i} : {norm_dX}\n")
-
-        if i >=1 and np.abs(norm_dX_all[i]-norm_dX_all[i-1]) < tol: 
+        
+        if i >=1 and np.abs(norm_dX_all[i]-norm_dX_all[i-1]) < tol:
+            
             break
     
 
@@ -104,11 +109,13 @@ def graph_slam_run_algorithm(graph, numIter, g_graph, pre_noise):
     # # Remove files
     # for filename in set(filenames):
     #     os.remove('./graphSLAM/utils/figs/'+ filename)
-    
     np.savetxt("results/Owndata/error_full_array.txt", err_opt_f, fmt="%s")
     np.savetxt("results/Owndata/rel_change_dx.txt", norm_dX_all, fmt="%s")
     np.savetxt("results/Owndata/pose_error_split.txt", e_pose, fmt="%s")
-    np.savetxt("results/Owndata/params.txt", (LAMBDAH,PHI,FOV), fmt="%s")
+    np.savetxt("results/Owndata/params.txt", (LAMBDAH,PHI,FOV,iter), fmt="%s")
+    np.savetxt("results/Owndata/error_split_mean.txt", e_direct, fmt="%s")
+    np.savetxt("results/Owndata/error_array_bearing.txt", e_bear, fmt="%s")
+
 
 
     # dcs_arrayplot(dcs_array)
@@ -116,12 +123,14 @@ def graph_slam_run_algorithm(graph, numIter, g_graph, pre_noise):
     graph_plot(graph, pre_noise, ontop=True)
     plot_ground_together_noise(graph, g_graph, pre_noise, lm_plot=False)
     plot_map(graph,g_graph)
-    poses_per_landmark(graph, pre = False)
-    landmark_ba(graph,g_graph,pre_noise)
+    # poses_per_landmark(graph, pre = False)
+    
     color_error_plot(graph, g_graph)
     error_plot(graph, g_graph,pre_noise)
     # A_traj_error(graph, g_graph)
     # print(f"slamiter{e_land}")
     plot_errors(err_opt_f, e_pose, e_bear, e_land, e_gps)
-   
+    landmark_ba(graph,g_graph,pre_noise)
+    color_error_plot3d(graph, g_graph)
+    
     return norm_dX_all

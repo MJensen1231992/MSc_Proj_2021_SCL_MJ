@@ -175,11 +175,12 @@ def qualified_guess(edges, lut, x, nodes, nodeTypes, least_squares: bool, triang
     tri = TRI()
     mem = defaultdict(list)
     unused_lm = []
+    k = 0
     count = 0
 
     for e in edges:
         if e.Type == 'B':
-            
+            lost_bearings = []
             _nodePose = e.nodeFrom
             _nodeLm = e.nodeTo
         
@@ -188,6 +189,8 @@ def qualified_guess(edges, lut, x, nodes, nodeTypes, least_squares: bool, triang
             z_ij = e.poseMeasurement # Bearing measurement
 
             if count > 0 and check_parallel_lines(_x_b, _z_ij, x_b, z_ij, epsilon=epsilon):
+                k +=1
+                
                 continue
             else:
                 _meas = [x_b[0], x_b[1], x_b[2], z_ij]
@@ -196,7 +199,8 @@ def qualified_guess(edges, lut, x, nodes, nodeTypes, least_squares: bool, triang
             _x_b = x_b # Updating old value
             _z_ij = z_ij # Updating old value
             count += 1
-
+    print(f"thrown away bearings parallel{k}")
+    np.savetxt("results/Owndata/bearingdiscarded.txt", (k,1), fmt="%s")
 
     for ID, meas in mem.items():
 

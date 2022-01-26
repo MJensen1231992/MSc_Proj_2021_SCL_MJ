@@ -16,7 +16,7 @@ def information_matrix(graph):
 
     return H,b 
 
-def linearize_solve(graph, lambdaH: float = 1.0, needToAddPrior=True, dcs=True):
+def linearize_solve(graph, lambdaH: float = 1.0, needToAddPrior=True, dcs=False):
    
     phi = PHI
     dcs_array = []
@@ -35,10 +35,14 @@ def linearize_solve(graph, lambdaH: float = 1.0, needToAddPrior=True, dcs=True):
                 needToAddPrior = False
            
             x_i = graph.x[fromIdx:fromIdx+3]
+            x_i[2] = wrap2pi(x_i[2])
             x_j = graph.x[toIdx:toIdx+3]
             z_ij = edge.poseMeasurement
             omega_ij = edge.information
-            
+
+            if x_i[2] > np.pi:
+                print('fuck')
+
             error , A, B = pose_pose_constraints(x_i, x_j, z_ij)
 
             if dcs:
@@ -59,6 +63,7 @@ def linearize_solve(graph, lambdaH: float = 1.0, needToAddPrior=True, dcs=True):
             toIdx = graph.lut[edge.nodeTo]
             
             x_i = graph.x[fromIdx:fromIdx+3] #robot pose
+            x_i[2] = wrap2pi(x_i[2])
             x_j = graph.x[toIdx:toIdx+2] # landmark pose
             z_ij = edge.poseMeasurement # measurement
             omega_ij = edge.information
@@ -103,6 +108,7 @@ def linearize_solve(graph, lambdaH: float = 1.0, needToAddPrior=True, dcs=True):
             toIdx = graph.lut[edge.nodeTo]
             
             x_i = graph.x[fromIdx:fromIdx+3] # robot pose
+            x_i[2] = wrap2pi(x_i[2])
             x_j = graph.x[toIdx:toIdx+2] # x,y of landmark in noisy gis. comes from loader 
 
             lm_ID = edge.nodeTo
