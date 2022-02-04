@@ -21,12 +21,16 @@ Figures below shows an example of the process. Selected bearing_only and not out
 
 ## Running the SLAM algorithm
 
-After creating your own data file the ground truth and noisy route will be available and needs to be declared. 
-In utils/linearize.py you can choose whether DCS for outlier downweighning should be active in the dcs bool.
-In utils/slam_iterate.py the plotting functions are called and this is also where you can choose phi values for DCS and lambda for damping.
+After creating your own data file the ground truth and noisy route will be available and needs to be declared. <br />
+In utils/linearize.py you can choose whether DCS for outlier downweighning should be active in the dcs bool.<br />
+In utils/slam_iterate.py the plotting functions are called and this is also where you can choose phi values for DCS and lambda for damping.<br />
+The algorithm is run from Run_slam.py<br />
 
 ## Results from bearing-only SLAM
 ![results](./figures/ground_Together.png)
 ![results](./figures/landmarkpositionsbeforeafter.png)
 ![Alt Text](./figures/20211230-132841.gif)
+
+# External dataset Victoria Park
+![Alt Text](./figures/vic.gif)
 
