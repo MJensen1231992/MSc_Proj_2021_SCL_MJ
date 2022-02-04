@@ -19,3 +19,8 @@ Figures below shows an example of the process. Selected bearing_only and not out
 
 ![simulator](./figures/simulator_route_odometry.png)
 
+## Running the SLAM algorithm
+
+After creating your own data file the ground truth and noisy route will be available and needs to be declared. 
+In utils/linearize.py you can choose whether DCS for outlier downweighning should be active in the dcs bool.
+In utils/slam_iterate.py the plotting functions are called and this is also where you can choose phi values for DCS and lambda for damping.
