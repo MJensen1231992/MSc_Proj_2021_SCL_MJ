@@ -1,6 +1,98 @@
 import random
 import numpy as np
-from math import pi, atan2, cos, sin
+from math import pi, atan2, cos, sin, sqrt
+import matplotlib.pyplot as plt
+from sklearn.metrics import mean_squared_error
+
+# @staticmethod
+# def GNSS_reading(x_odo, y_odo, frequency: int=5, std_gps_x: float=0.33, std_gps_y: float=0.33):
+#     x_gps, y_gps = [], []
+#     gt_x_gps, gt_y_gps = [], []
+
+#     for i in range(len(x_odo)):
+#         if (i % frequency == 0):
+            
+#             x_gpsN, y_gpsN = add_GNSS_noise(x_odo[i], y_odo[i], std_gps_x, std_gps_y)
+
+#             x_gps.append(x_gpsN); y_gps.append(y_gpsN)
+#             gt_x_gps.append(x_odo[i]); gt_y_gps.append(y_odo[i])
+
+#     # print('Added {} GPS readings'.format(len(x_gps)))
+#     return x_gps, y_gps, gt_x_gps, gt_y_gps, len(x_gps)
+
+def RMSE(predicted, actual):
+    return np.square(np.subtract(actual,predicted)).mean() 
+
+def MAE(predicted, actual):
+    return abs(np.subtract(actual, predicted)).mean()
+
+def ATE(predicted, actual):
+
+    xsum, ysum, ssum = 0, 0, 0
+    pred1 = []
+    act1 = []
+    steps = []
+    xsteps = []
+    ysteps = []
+
+    for i in range(len(actual[0][:])-1):
+
+        pred1.append(sqrt((predicted[0][i+1] - predicted[0][i])**2 + (predicted[1][i+1] - predicted[1][i])**2))
+        act1.append(sqrt((actual[0][i+1] - actual[0][i])**2 + (actual[1][i+1] - actual[1][i])**2))
+        
+        xsum += sqrt((predicted[0][i+1] - predicted[0][i])**2) - (sqrt((actual[0][i+1] - actual[0][i])**2))
+        ysum += sqrt((predicted[1][i+1] - predicted[1][i])**2) - (sqrt((actual[1][i+1] - actual[1][i])**2))
+        # ssum += xsum + ysum 
+
+        # steps.append(ssum)
+        xsteps.append(xsum)
+        ysteps.append(ysum)
+        
+    # plt.plot(steps, label='total')
+    plt.plot(xsteps, label='xtotal')
+    plt.plot(ysteps, label='ytotal')
+    plt.legend()
+
+    return (mean_squared_error(act1,pred1)) 
+    
+
+def ALE(predicted, actual):
+
+    pred_pose = []
+    act_pose = []
+
+    for landmark in predicted.values():
+        for pose in landmark:
+            pred_pose.append(pose)
+    
+    for landmark in actual.values():
+        for pose in landmark:
+            act_pose.append(pose)
+
+    return (mean_squared_error(act_pose,pred_pose)) 
+
+def add_GNSS_noise(x, y, std_gps_x, std_gps_y):
+    """
+    Adding noise to GNSS(GPS) points from ground truth in UTM32
+
+    Args:
+        x ([np.array 1xN]): [x ground truth robot path]
+        y ([np.array 1xN]): [y ground truth robot path]
+        std_gps_x (float, optional): [standard deviation for GPS points in x direction]. 
+        std_gps_y (float, optional): [standard deviation for GPS points in y direction]. 
+    """    
+
+    if (random.random() < 0.9):
+        std_gps_x, std_gps_y = std_gps_x*2, std_gps_y*2
+    else:
+        std_gps_x, std_gps_y = 0.33, 0.1
+
+    noise_x_dir = np.random.normal(0, std_gps_x)
+    noise_y_dir = np.random.normal(0, std_gps_y)
+    x_noise = x + noise_x_dir
+    y_noise = y + noise_y_dir
+
+    return x_noise, y_noise
 
 def convert_to_np_array(x, y, th):
     # Converting list to numpy array

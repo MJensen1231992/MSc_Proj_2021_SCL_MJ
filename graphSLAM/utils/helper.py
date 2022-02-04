@@ -14,7 +14,7 @@ def get_poses_landmarks(graph):
     
     for nodeId in graph.nodes:
         
-        offset = graph.lut[nodeId] # checking whether 2 or 3 next lines are needed. if pose or landmark
+        offset = graph.lut[nodeId]
         
         if graph.nodeTypes[nodeId] == 'VSE2':
             pose = graph.x[offset:offset+3]
@@ -52,6 +52,7 @@ def trans2vec(T):
 
     return vec
 
+
 def is_pos_def(infoH):
     if np.allclose(infoH, infoH.T):
         try:
@@ -84,6 +85,7 @@ def vision_length_check(graph):
             x = (np.abs(edge.poseMeasurement[0]))
             y = (np.abs(edge.poseMeasurement[1]))
             ks.append(np.sqrt([x**2+y**2]))
+            
     print(max(ks))
 
 def wrap2pi(angle):
@@ -136,10 +138,6 @@ def calc_gradient_hessian(A,B,information,error, edgetype: str):
         b_i = np.dot(np.dot(A.T,information), error)
         b_j = np.dot(np.dot(B.T,information), error)
 
-        H_ii = np.dot(np.dot(A.T,information), A) 
-        H_ij = np.dot(np.dot(A.T,information), B) 
-        H_ji = np.dot(np.dot(B.T,information), A) 
-        H_jj = np.dot(np.dot(B.T,information), B)  
 
     H_ii = np.dot(np.dot(A.T,information), A) 
     H_ij = np.dot(np.dot(A.T,information), B) 
@@ -148,12 +146,12 @@ def calc_gradient_hessian(A,B,information,error, edgetype: str):
     
     return b_i, b_j, H_ii, H_ij, H_ji, H_jj
 
-def build_gradient_hessian(b_i, b_j, H_ii, H_ij, H_ji, H_jj, H, b, fromIdx, toIdx, edgetype: str):
+def build_gradient_hessian(b_i, b_j, H_ii, H_ij, H_ji, H_jj,H,b,fromIdx,toIdx, edgetype: str):
     
     if edgetype=='P':
 
         H[fromIdx:fromIdx+3, fromIdx:fromIdx+3] += H_ii
-        H[fromIdx:fromIdx+3, toIdx:toIdx+3] += H_ij.T
+        H[fromIdx:fromIdx+3, toIdx:toIdx+3] += H_ij
         H[toIdx:toIdx+3, fromIdx:fromIdx+3] += H_ji
         H[toIdx:toIdx+3, toIdx:toIdx+3] += H_jj
 

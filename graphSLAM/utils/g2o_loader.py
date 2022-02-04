@@ -5,7 +5,7 @@ from utils.lib.triangulation import Triangulation as TRI
 from collections import namedtuple, defaultdict
 from utils.helper import from_uppertri_to_full, wrap2pi
 
-def load_g2o_graph(filename: str, gt: bool, noBearing: bool=True):#, firstMeas=True):
+def load_g2o_graph(filename: str, gt: bool, descriptor: bool):
     
     print(f"Loading file: {filename[15:-20]}")
 
@@ -19,13 +19,14 @@ def load_g2o_graph(filename: str, gt: bool, noBearing: bool=True):#, firstMeas=T
     lm_status = {}
     initial_b_guess = False
     initial_qualified_guess = True
- 
+    
     with open(filename, 'r') as file:
         for line in file:
            
-            data = line.split() # splits the columns
+            data = line.split() 
             
             if data[0] == 'VERTEX_SE2':
+
                 nodeType = 'VSE2'
                 nodeId = int(data[1])
                 pose = np.array(data[2:5],dtype=np.float64)
@@ -33,17 +34,16 @@ def load_g2o_graph(filename: str, gt: bool, noBearing: bool=True):#, firstMeas=T
                 nodeTypes[nodeId] = nodeType
 
             elif data[0] == 'VERTEX_XY':
-                if filename[15:-20] == 'ground_truth' or True:
-                    nodeType = 'VXY'
-                    nodeId = int(data[1])
-                    landmark = np.array(data[2:4],dtype=np.float64)  
-                    nodes[nodeId] = landmark
-                    nodeTypes[nodeId] = nodeType
-                else:
-                    continue
+
+                nodeType = 'VXY'
+                nodeId = int(data[1])
+                landmark = np.array(data[2:4],dtype=np.float64)  
+                nodes[nodeId] = landmark
+                nodeTypes[nodeId] = nodeType
+            
 
             elif data[0] == 'VERTEX_GPS':
-                continue
+                
                 nodeType = 'VGPS'
                 nodeId = int(data[1])
                 gps_point = np.array(data[2:4],dtype=np.float64)
@@ -52,8 +52,7 @@ def load_g2o_graph(filename: str, gt: bool, noBearing: bool=True):#, firstMeas=T
 
             elif data[0] == 'EDGE_SE2':
                 
-                
-                Type = 'P' # pose type
+                Type = 'P' #Pose type
                 nodeFrom = int(data[1])
                 nodeTo = int(data[2])
                 poseMeasurement = np.array(data[3:6], dtype=np.float64)
@@ -64,28 +63,22 @@ def load_g2o_graph(filename: str, gt: bool, noBearing: bool=True):#, firstMeas=T
                 
 
             elif data[0] == 'EDGE_SE2_XY':
-                continue
-                Type = 'L' #landmark type
+                
+                Type = 'L' #Landmark type
                 nodeFrom = int(data[1])
                 nodeTo = int(data[2])
                 
-                if noBearing: #If we dont have any bearing to landmark
-                    poseMeasurement = np.array(data[3:5],dtype=np.float64)
-                    upperTriangle = np.array(data[5:8],dtype=np.float64)
-                    information = from_uppertri_to_full(upperTriangle,2)
-                    
-                else: #If we need landmark bearing
-                    poseMeasurement = np.array(data[3:6],dtype=np.float64)
-                    upperTriangle = np.array(data[6:12],dtype=np.float64)
-                    information = from_uppertri_to_full(upperTriangle,3)
-
+                poseMeasurement = np.array(data[3:5],dtype=np.float64)
+                upperTriangle = np.array(data[5:8],dtype=np.float64)
+                information = from_uppertri_to_full(upperTriangle,2)
+                
                 edge = Edge(Type, nodeFrom, nodeTo, poseMeasurement, information)
                 edges.append(edge)
                 
 
             elif data[0] == 'EDGE_SE2_GPS':
                 
-                Type = 'G' #landmark type
+                Type = 'G' #GPS type
                 nodeFrom = int(data[1])
                 nodeTo = int(data[2])                
                 poseMeasurement = np.array(data[3:5],dtype=np.float64)
@@ -95,31 +88,36 @@ def load_g2o_graph(filename: str, gt: bool, noBearing: bool=True):#, firstMeas=T
                 edge = Edge(Type, nodeFrom,nodeTo, poseMeasurement, information)
                 edges.append(edge)
 
-            elif data[0] == 'EDGE_SE2_BEARING' or 'EDGE_BEARING_SE2_XY':
-                Type = 'B' #landmark type
+            elif data[0] == 'EDGE_SE2_BEARING':
+
+                descriptor = True
+                Type = 'B' #Bearing type
                 nodeFrom = int(data[1])
                 nodeTo = int(data[2])
                 poseMeasurement = float(data[3])
                 information = float(data[4])
-                
-                edge = Edge(Type, nodeFrom, nodeTo, poseMeasurement, information)
-                edges.append(edge)
 
                 if initial_b_guess:
                     initial_bearing_guess(nodes, nodeFrom, nodeTo, nodeTypes, poseMeasurement, lm_status)
+
+                edge = Edge(Type, nodeFrom, nodeTo, poseMeasurement, information)
+                edges.append(edge)
+
+               
             else: 
                 print("Error, edge or vertex not defined")
 
     lut, x = update_info(nodes)
-
+    
     if gt==False and initial_qualified_guess:
+        
         print("Noisy data")
-        nodes, nodeTypes, unused_lm = qualified_guess(edges, lut, x, nodes, nodeTypes, least_squares=True, triangulation=False, epsilon=5.0)
+        nodes, nodeTypes, unused_lm = qualified_guess(edges, lut, x, nodes, nodeTypes, least_squares=True, triangulation=False, epsilon=1.0)
         edges, nodes, nodeTypes = remove_unused_landmark(edges, nodes, nodeTypes, unused_lm)
         lut, x = update_info(nodes)
-
+ 
     from run_slam import Graph
-    graph = Graph(x, nodes, edges, lut, nodeTypes)
+    graph = Graph(x, nodes, edges, lut, nodeTypes,descriptor)
 
     print('Loaded graph with {} nodes and {} edges'.format(len(graph.nodes), len(graph.edges)))
     print('\n')
@@ -142,14 +140,12 @@ def update_info(nodes):
 
 def remove_unused_landmark(edges, nodes, nodeTypes, unused_lm):
 
-    # Checking edges (apparently it has to be done twice...?)
-    for edge in edges:
+    for edge in edges.copy():
+
         if edge.nodeTo in unused_lm:
+            print(f"edgenodes to:{edge.nodeTo}\n")
             edges.remove(edge)
 
-    for edge in edges:
-        if edge.nodeTo in unused_lm:
-            edges.remove(edge)
 
     # Checking nodes
     for ID, _ in nodes.copy().items():
@@ -160,7 +156,6 @@ def remove_unused_landmark(edges, nodes, nodeTypes, unused_lm):
             if check:
                 del nodes[ID]
     
-
     # Checking nodetypes
     for ID, _ in nodeTypes.copy().items():
         for lm_ID in unused_lm:
@@ -169,6 +164,7 @@ def remove_unused_landmark(edges, nodes, nodeTypes, unused_lm):
             if check:
                 del nodeTypes[ID]
 
+   
     return edges, nodes, nodeTypes
 
 def qualified_guess(edges, lut, x, nodes, nodeTypes, least_squares: bool, triangulation: bool, epsilon: float):
@@ -177,11 +173,12 @@ def qualified_guess(edges, lut, x, nodes, nodeTypes, least_squares: bool, triang
     tri = TRI()
     mem = defaultdict(list)
     unused_lm = []
+    k = 0
     count = 0
 
     for e in edges:
         if e.Type == 'B':
-            
+            lost_bearings = []
             _nodePose = e.nodeFrom
             _nodeLm = e.nodeTo
         
@@ -190,6 +187,8 @@ def qualified_guess(edges, lut, x, nodes, nodeTypes, least_squares: bool, triang
             z_ij = e.poseMeasurement # Bearing measurement
 
             if count > 0 and check_parallel_lines(_x_b, _z_ij, x_b, z_ij, epsilon=epsilon):
+                k +=1
+                
                 continue
             else:
                 _meas = [x_b[0], x_b[1], x_b[2], z_ij]
@@ -198,7 +197,7 @@ def qualified_guess(edges, lut, x, nodes, nodeTypes, least_squares: bool, triang
             _x_b = x_b # Updating old value
             _z_ij = z_ij # Updating old value
             count += 1
-
+            
 
     for ID, meas in mem.items():
 
@@ -235,8 +234,8 @@ def initial_bearing_guess(nodes, nodeFrom, nodeTo, nodeTypes, poseMeasurement, l
     for id, status in lm_status.items():
         if id == nodeTo and status == False:
             
-            lambdadistx = 5#np.random.uniform(low=1, high=7)
-            lambdadisty = 5#np.random.uniform(low=1, high=7)
+            lambdadistx = 5
+            lambdadisty = 5
             xguess = x_b[0]+lambdadistx*np.cos(wrap2pi(x_b[2]+z_ij))
             yguess = x_b[1]+lambdadisty*np.sin(wrap2pi(x_b[2]+z_ij))
 

@@ -1,9 +1,6 @@
-from matplotlib import markers
 import numpy as np
 import matplotlib.pyplot as plt
 from math import atan2, pi, cos, sin, sqrt, ceil
-from sklearn.metrics import mean_squared_error
-import random
 import warnings
 
 warnings.filterwarnings("ignore", category=RuntimeWarning) 
@@ -11,8 +8,15 @@ warnings.filterwarnings("ignore", category=RuntimeWarning)
 # Local imports
 from lib.helpers import *
 
-def do_rom_splines(route):
+def do_rom_splines(route: list):
+    """Execute Catmull Rom spline algorithm over a sequence of points
 
+    Args:
+        route (list): list of ground truth points
+
+    Returns:
+        C: route
+    """
     size = len(route)
     C = []
 
@@ -28,18 +32,24 @@ def do_rom_splines(route):
     
     return C
 
-def rom_spline(P0: float, P1: float, P2: float, P3: float, t: tuple=(0, 0.33, 0.66, 1), alpha: float=0.5, N: int = None, d: float=0.01):
+def rom_spline(P0: float, P1: float, P2: float, P3: float, t: tuple=(0, 0.33, 0.66, 1), alpha: float=0.5, N: int = None, d: float=0.5):
+    """The core math for making Catmull Rom splines. alpha of 0.5 results in centripetal parameterization
 
+    Args:
+        P0, P1, P2, P3 (float): Control point 1 to 4
+        t (tuple, optional): knot sequence. Defaults to (0, 0.33, 0.66, 1).
+        alpha (float, optional): parameterization value. Defaults to 0.5.
+        N (int, optional): Amount of points in the interpolation, changes dynamically. Defaults to None.
+        d (float, optional): variable to change N. Defaults to 0.5.
+
+    Returns:
+        pt: interpolation points 
+    """
     P0, P1, P2, P3 = map(np.array, [P0, P1, P2, P3])
     
     if N == None:
         dist = np.linalg.norm(P1 - P2)
         N = ceil(dist / d)
-
-    if N > 40:
-        N = 40
-    elif N < 30:
-        N = 30
 
     t0 = 0
     t1 = traj(P0, P1, t0, alpha)
@@ -62,21 +72,24 @@ def rom_spline(P0: float, P1: float, P2: float, P3: float, t: tuple=(0, 0.33, 0.
     return pt
 
 def traj(Pi, Pj, t, alpha):
-
+    """
+    Helper function to catmull rom splines
+    """    
     xi, yi = Pi[0:2]
     xj, yj = Pj[0:2]
 
     return sqrt(((xj - xi)**2 + (yj - yi)**2))**alpha + t
 
 
-def robot_heading(x, y, theta, color: str, length: float=1, alpha=1):
+def robot_heading(x, y, theta, color: str, length: float=1, alpha: float=1, constant: float=5):
         """
         Method that plots the heading of every pose
         """
-        dx = np.cos(theta)
-        dy = np.sin(theta)
+        dx = np.cos(theta)*constant
+        dy = np.sin(theta)*constant
 
         plt.quiver(x, y, dx, dy, color=color, angles='xy', scale_units='xy', scale=length, alpha=alpha)
+
 
 
 def reduce_dimensions(route, descriptor: str='half'):
@@ -111,7 +124,7 @@ def reduce_dimensions(route, descriptor: str='half'):
 
     return np.asarray_chkfinite(reduced)
 
-def distance_traveled(x,y):
+def distance_traveled(x, y):
     """Computing euclidean distance traveled 
 
     Args:
@@ -128,36 +141,28 @@ def distance_traveled(x,y):
 
     return distance
 
-def add_GNSS_noise(x, y, std_gps_x, std_gps_y):
-    """
-    Adding noise to GNSS(GPS) points from ground truth in UTM32
-
-    Args:
-        x ([np.array 1xN]): [x ground truth robot path]
-        y ([np.array 1xN]): [y ground truth robot path]
-        std_gps_x (float, optional): [standard deviation for GPS points in x direction]. 
-        std_gps_y (float, optional): [standard deviation for GPS points in y direction]. 
-    """    
-
-    if (random.random() < 0.9):
-        std_gps_x, std_gps_y = std_gps_x*2, std_gps_y*2
-    else:
-        std_gps_x, std_gps_y = 0.33, 0.1
-
-    noise_x_dir = np.random.normal(0, std_gps_x)
-    noise_y_dir = np.random.normal(0, std_gps_y)
-    x_noise = x + noise_x_dir
-    y_noise = y + noise_y_dir
-
-    return x_noise, y_noise
-
 def add_bearing_noise(bearing, systematic_lm_noise, std_lm_bearing):
+    """Adding noise to landmark bearing observations
 
+    Returns:
+        float: noisy bearing in radians
+    """    
+    
     noise = np.random.normal(systematic_lm_noise, std_lm_bearing)
     
     return bearing + noise
 
 def add_landmark_noise(landmarks, std_lm_x: float=0.5, std_lm_y: float=0.5):
+    """Adding noise to landmark positions from GIS data to robot simulator.
+
+    Args:
+        landmarks ([dict]): contains landmark type [key] and position [value]
+        std_lm_x (float, optional): [gaussian sample for noise in x direction]. Defaults to 0.5.
+        std_lm_y (float, optional): [gaussian sample for noise in y direction]. Defaults to 0.5.
+
+    Returns:
+        [dict]: contains noisy landmarks 
+    """    
     new_landmarks = {}
     for key, landmark in landmarks.items():
         for pos in landmark:
@@ -173,13 +178,19 @@ def add_landmark_noise(landmarks, std_lm_x: float=0.5, std_lm_y: float=0.5):
     
     return new_landmarks
     
-def addNoise(x, y, th, std_x, std_y, std_th, mu):
+def addNoise(x, y, th, std_x: float, std_y: float, std_th: float, mu: float):
+    """Creating odometry path from ground truth poses
 
-    """Takes in odometry values and adding noise in relative pose
+    Args:
+        x, y, th (float): ground truth pose
+        std_x (float): std for gaussian sample in x
+        std_y (float): std for gaussian sample in y
+        std_th (float): std for gaussian sample in th
+        mu (float): bias in y-direction
 
     Returns:
-        xN, yN, thN: The corresponding odometry values with added noise
-    """    
+        xN, yN, thN (float): odometry route
+    """
 
     xN = np.zeros(len(x)); yN = np.zeros(len(y)); tN = np.zeros(len(th))
     xN[0] = x[0]; yN[0] = y[0]; tN[0] = th[0]
@@ -209,7 +220,7 @@ def addNoise(x, y, th, std_x, std_y, std_th, mu):
             yNoise = np.random.normal(mu, std_y) 
             thNoise = np.random.normal(0, std_th)
 
-        del_xN = del_x + xNoise; del_yN = del_y + yNoise; del_thetaN = del_th + thNoise
+        del_xN = del_x + xNoise; del_yN = del_y + yNoise; del_thetaN = wrap2pi(del_th + thNoise)
         
 
         # Convert to T2_1'
@@ -232,124 +243,30 @@ def addNoise(x, y, th, std_x, std_y, std_th, mu):
 
     return xN, yN, tN
 
-def addNoise_thrun(x, y, th, std_x, std_y, std_th, mu):
-
-    """Takes in odometry values and adding noise in relative pose
-
-    Returns:
-        xN, yN, thN: The corresponding odometry values with added noise
-    """    
-    xN = np.zeros(len(x)); yN = np.zeros(len(y)); tN = np.zeros(len(th))
-    xN[0] = x[0]; yN[0] = y[0]; tN[0] = th[0]
-
-    # Motion parameters
-    p = np.array([0.18, 0.4, 0.18, 0.0025])
-
-    for i in range(1, len(x)):
-        # -- Unpacking values -----
-        p1 = (x[i-1], y[i-1], th[i-1])
-        p2 = (x[i], y[i], th[i])
-
-        T1_w = vec2trans(p1)
-        T2_w = vec2trans(p2)
-
-        try:
-            T2_1 = np.linalg.inv(T1_w) @ T2_w
-        except:
-            print(f"{T2_1} is not invertible.")
-
-        x_bar_prime = p2[0]
-        y_bar_prime = p2[1]
-        theta_bar_prime = p2[2]
-
-        x_bar = T2_1[0][2]
-        y_bar = T2_1[1][2]
-        theta_bar = atan2(T2_1[1, 0], T2_1[0, 0])
-
-        _x = p1[0]
-        _y = p1[1]
-        _theta = p1[2]
-
-        # ----------------------
-
-        delta_rot1 = atan2(y_bar_prime - y_bar, x_bar_prime - x_bar) - theta_bar
-        delta_trans = sqrt((x_bar - x_bar_prime)**2 + (y_bar - y_bar_prime)**2)
-        delta_rot2 = wrap2pi(theta_bar_prime - theta_bar - delta_rot1)
-        
-        delta_hat_rot1 = delta_rot1 - np.random.normal(0, p[0]*delta_rot1**2 + p[1]*delta_trans**2)
-        delta_hat_trans = delta_trans - np.random.normal(0, p[2]*delta_trans**2 + p[3]*delta_rot1**2 + p[3]*delta_rot2**2)
-        delta_hat_rot2 = delta_rot2 - np.random.normal(0, p[0]*delta_rot2**2 + p[1]*delta_trans**2)
-
-        x_prime = _x + delta_hat_trans * cos(wrap2pi(_theta+delta_hat_rot1))
-        y_prime = _y + delta_hat_trans * sin(wrap2pi(_theta+delta_hat_rot1))
-        theta_prime = wrap2pi(_theta + delta_hat_rot1 + delta_hat_rot2)
-
-        xN[i] = x_prime; yN[i] = y_prime; tN[i] = theta_prime
-
-    return xN, yN, tN
 
 def calc_bearing(x1, y1, x2, y2):
-    
+    """Creating angle
+
+    Returns:
+        float: angle between robot and landmark
+    """    
     angle = atan2((y2 - y1), (x2 - x1))
 
     return angle
 
 def calculate_angles(route):
-    # Calculating angle between two points of a route
-    angles = [atan2((y2 - y1), (x2 - x1)) for (x1, y1), (x2, y2) in zip(route[:-1], route[1:])]
+    """Creating angles between consecutive robot poses
+
+    Args:
+        route (array): robot positions (x,y)
+
+    Returns:
+        angles: list of angles in radians in the interval (-pi, pi] 
+    """    
+    
+    angles = [atan2((y2 - y1), (x2 - x1)) for (x1, y1), (x2, y2) in zip(route[:-1], route[1:])] 
 
     return angles
-
-def RMSE(predicted, actual):
-    return np.square(np.subtract(actual,predicted)).mean() 
-
-def MAE(predicted, actual):
-    return abs(np.subtract(actual, predicted)).mean()
-
-def ATE(predicted, actual):
-
-    xsum, ysum, ssum = 0, 0, 0
-    pred1 = []
-    act1 = []
-    steps = []
-    xsteps = []
-    ysteps = []
-
-    for i in range(len(actual[0][:])-1):
-
-        pred1.append(sqrt((predicted[0][i+1] - predicted[0][i])**2 + (predicted[1][i+1] - predicted[1][i])**2))
-        act1.append(sqrt((actual[0][i+1] - actual[0][i])**2 + (actual[1][i+1] - actual[1][i])**2))
-        
-        xsum += sqrt((predicted[0][i+1] - predicted[0][i])**2) - (sqrt((actual[0][i+1] - actual[0][i])**2))
-        ysum += sqrt((predicted[1][i+1] - predicted[1][i])**2) - (sqrt((actual[1][i+1] - actual[1][i])**2))
-        # ssum += xsum + ysum 
-
-        # steps.append(ssum)
-        xsteps.append(xsum)
-        ysteps.append(ysum)
-        
-    # plt.plot(steps, label='total')
-    plt.plot(xsteps, label='xtotal')
-    plt.plot(ysteps, label='ytotal')
-    plt.legend()
-
-    return (mean_squared_error(act1,pred1)) 
-    
-
-def ALE(predicted, actual):
-
-    pred_pose = []
-    act_pose = []
-
-    for landmark in predicted.values():
-        for pose in landmark:
-            pred_pose.append(pose)
-    
-    for landmark in actual.values():
-        for pose in landmark:
-            act_pose.append(pose)
-
-    return (mean_squared_error(act_pose,pred_pose)) 
 
 def _ready_data(data):
     data = np.vstack(data)

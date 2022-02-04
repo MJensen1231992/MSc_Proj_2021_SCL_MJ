@@ -1,3 +1,4 @@
+from cProfile import label
 import numpy as np
 import matplotlib.pyplot as plt
 import sys
@@ -86,16 +87,20 @@ class world:
                 full_route = do_rom_splines(self.route)
                 full_route = [[pose[0], pose[1]] for pose in full_route]
 
+                cp_route = full_route.copy()
+                for (x1, y1), (x2, y2) in zip(cp_route[:-1], full_route[1:]):
+                    distance = np.linalg.norm(np.array([x1,y1]) - np.array([x2,y2]))
+                    if distance < 0.000001:
+                        full_route.remove([x1,y1])
+                        full_route.remove([x2,y2])
+                    else:
+                        continue
+                
                 # Atan2 to calculate angles between all poses
                 angles = calculate_angles(full_route)
-
+      
                 full_route_poses = [[pose[0], pose[1], theta] for pose, theta in zip(full_route, angles)]
                 x_odo, y_odo, th_odo = zip(*full_route_poses)
-
-                
-                # plt.plot(x_odo, y_odo, color='blue')
-                # plt.quiver(x_odo, y_odo, cos(th_odo), sin(th_odo), angles='xy')
-                # plt.show()
 
                 # Saving the reduced route to json file 
                 json_path = np.array([x_odo, y_odo, th_odo])
@@ -103,7 +108,7 @@ class world:
                 save_to_json(json_path1,'./g2o_generator/robosim/data/robopath/'+self.route_name+'.json')
                 route_gt = './g2o_generator/robosim/data/robopath/'+self.route_name+'.json'
 
-                ######################################### Saving noisy rouite for analysis ################################################
+                ######################################### Saving noisy route for analysis ################################################
                 std_odo_x = 0.1; std_odo_y = 0.2; std_odo_th = deg2rad(0.1); mu_bias = 0.3
 
                 x_odo_N, y_odo_N, th_odo_N = addNoise(x_odo, y_odo, th_odo, std_odo_x, std_odo_y, std_odo_th, mu_bias)

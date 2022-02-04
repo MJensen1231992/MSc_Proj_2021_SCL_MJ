@@ -1,18 +1,21 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from numpy.lib.function_base import diff
 import seaborn as sns
 import pandas as pd
+from matplotlib.ticker import FuncFormatter
+from mpl_toolkits import mplot3d
 from utils.helper import get_poses_landmarks, vec2trans, trans2vec, load_from_json
 from utils.error import *
+
 import sys
+
 sys.path.append('g2o_generator/GIS_Extraction')
 
 import csv_reader as GIS
 
-sns.set()
+sns.set(rc={'figure.figsize':(12, 6)} )
 
-def graph_plot(graph, animate = False, poseEdgesPlot = True, landmarkEdgesPlot = False, gpsEdgesPlot = False):
+def graph_plot(graph, pregraph, animate = False, poseEdgesPlot = True, landmarkEdgesPlot = False, gpsEdgesPlot = False, ontop = False):
     
     fig , ax = plt.subplots()
     plt.clf()
@@ -20,19 +23,22 @@ def graph_plot(graph, animate = False, poseEdgesPlot = True, landmarkEdgesPlot =
     
     from run_slam import get_poses_landmarks
     poses, landmarks, lm_ID, gps = get_poses_landmarks(graph)
+    pre_poses, pre_landmarks, pre_lm_ID, _ = get_poses_landmarks(pregraph)
     
     #plot poses and landmarks if exits
     if len(poses) > 0:
-        poses = np.stack(poses, axis=0) # axis = 0 turns into integers/slices and not tuple
-        plt.plot(poses[:,0], poses[:,1], color='b', alpha = 0.9, marker='o', markersize=5,label = 'Robot pose')
-        #plt.quiver(poses[:,0], poses[:,1], np.cos(poses[:,2]),np.sin(poses[:,2]), angles= 'xy',scale=0.5)
+        poses = np.stack(poses, axis=0) 
+        plt.plot(poses[:,0], poses[:,1], color='royalblue', marker='o', markersize=4,label = 'Post Optimization',zorder = 2)
     
+    if ontop:
+        if len(pre_poses):
+            pre_poses = np.stack(pre_poses, axis=0) 
+            plt.plot(pre_poses[:,0], pre_poses[:,1], color= 'skyblue', alpha = 0.35, marker='o', markersize=4, label = 'Pre Optimization',zorder = 1)
+
+        
     if len(landmarks) > 0:
         landmarks = np.stack(landmarks, axis=0)
-        # plt.plot(landmarks[:,0], landmarks[:,1], 'r*', markersize=12, label = 'Landmark')
-        plt.scatter(landmarks[:,0], landmarks[:,1], label = 'Landmark', marker='*', color='r', s=150, zorder=10, alpha = 0.8)
-        for lx, ly, ID in zip(landmarks[:,0], landmarks[:,1], lm_ID):
-            plt.annotate(str(ID), xy=(lx, ly), color='r', zorder=11)
+        plt.scatter(landmarks[:,0], landmarks[:,1], label = 'Landmark', marker='*', color='firebrick', s=120, zorder=3, alpha = 0.7)
     
     if len(gps) > 0:
         gps = np.stack(gps, axis=0)
@@ -57,22 +63,22 @@ def graph_plot(graph, animate = False, poseEdgesPlot = True, landmarkEdgesPlot =
         toIdx = graph.lut[edge.nodeTo]
         
         
-        if edge.Type == 'P':
+        if edge.Type == 'P': #Pose-pose edge
             poseEdgesFrom.append(graph.x[fromIdx:fromIdx+3])
             poseEdgesTo.append(graph.x[toIdx:toIdx+3])
 
-        elif edge.Type == 'L': #Tager pose-landmark vertices derfor (3,2)
+        elif edge.Type == 'L': #Pose-landmark edge
             landmarkEdgesFrom.append(graph.x[fromIdx:fromIdx+3])
             landmarkEdgesTo.append(graph.x[toIdx:toIdx+2])
 
         
-        elif edge.Type == 'B': #Tager pose-landmark vertices derfor (3,2)
+        elif edge.Type == 'B': #Pose-bearing edge
             bearingEdgesFrom.append(graph.x[fromIdx:fromIdx+3])
             bearingEdgesTo.append(graph.x[toIdx:toIdx+2])
             bearingZ.append(edge.poseMeasurement)
             
         
-        elif edge.Type == 'G':
+        elif edge.Type == 'G': #Pose-gps edge
             gpsEdgesFrom.append(graph.x[fromIdx:fromIdx+3])
             gpsEdgesTo.append(graph.x[toIdx:toIdx+2]) 
             
@@ -93,8 +99,8 @@ def graph_plot(graph, animate = False, poseEdgesPlot = True, landmarkEdgesPlot =
 
         
         if poseEdgesPlot == True:
-            plt.plot(poseEdgeX_corr,poseEdgeY_corr,'k--', alpha = 0.8)
-            plt.plot([],[], 'k--', label='poseEdges')
+            plt.plot(poseEdgeX_corr,poseEdgeY_corr,'k--', alpha = 0.8,zorder=4)
+            plt.plot([],[], 'k--', label='Pose Edges')
 
     if len(landmarks) > 0 and edge.Type == 'L':
 
@@ -108,28 +114,24 @@ def graph_plot(graph, animate = False, poseEdgesPlot = True, landmarkEdgesPlot =
         landmarkEdgesX = landmarkEdges[:,0]
         landmarkEdgesY = landmarkEdges[:,1]
 
-        # # Use every 2nd x and y coordinate so correct correlation
         landmarkEdgeX_corr = np.vstack([landmarkEdgesX[0::2], landmarkEdgesX[1::2]])
         landmarkEdgeY_corr = np.vstack([landmarkEdgesY[0::2], landmarkEdgesY[1::2]])
 
         if landmarkEdgesPlot == True:
-            plt.plot(landmarkEdgeX_corr,landmarkEdgeY_corr,'k--')#, label = 'landEdges')
-            plt.plot([],[],'k--',label = 'landEdges')
+            plt.plot(landmarkEdgeX_corr,landmarkEdgeY_corr,'k--')
+            plt.plot([],[],'k--',label = 'Land edges')
 
     if len(landmarks) > 0 and edge.Type == 'B':
-        
         
         bearingEdgesFrom = np.stack(bearingEdgesFrom, axis = 0)
         bearingEdgesTo = np.stack(bearingEdgesTo, axis = 0)
         
-        # Zip landmark_from(x,y) with corresponding landmark_to(x,y)
         bearingZip = zip(bearingEdgesFrom[:,0:2], bearingEdgesTo)
         bearingEdges = np.vstack(bearingZip)
         
         bearingEdgesX = bearingEdges[:,0]
         bearingEdgesY = bearingEdges[:,1]
 
-        # # Use every 2nd x and y coordinate so correct correlation
         bearingEdgeX_corr = np.vstack([bearingEdgesX[0::2], bearingEdgesX[1::2]])
         bearingEdgeY_corr = np.vstack([bearingEdgesY[0::2], bearingEdgesY[1::2]])
         
@@ -139,7 +141,7 @@ def graph_plot(graph, animate = False, poseEdgesPlot = True, landmarkEdgesPlot =
         
         if landmarkEdgesPlot == True:
             plt.plot(bearingEdgeX_corr,bearingEdgeY_corr,'k--')
-            plt.plot([],[],'k--', label = 'bearingEdges')
+            plt.plot([],[],'k--', label = 'Bearing edges')
             plt.quiver(bearingEdgesFrom[:,0] , bearingEdgesFrom[:,1], np.cos(localBearing),np.sin(localBearing), label='Bearing', angles='xy',scale=0.5,alpha=0.2)
 
     if len(gps) > 0:
@@ -147,14 +149,12 @@ def graph_plot(graph, animate = False, poseEdgesPlot = True, landmarkEdgesPlot =
         gpsEdgesFrom = np.stack(gpsEdgesFrom, axis = 0)
         gpsEdgesTo = np.stack(gpsEdgesTo, axis = 0)
     
-        # Zip gps_from(x,y) with corresponding gps_to(x,y)
         gpsZip = zip(gpsEdgesFrom[:,0:2], gpsEdgesTo)
         gpsEdges = np.vstack(gpsZip)
         
         gpsEdgesX = gpsEdges[:,0]
         gpsEdgesY = gpsEdges[:,1]
 
-        # # Use every 2nd x and y coordinate so correct correlation
         gpsEdgeX_corr = np.vstack([gpsEdgesX[0::2], gpsEdgesX[1::2]])
         gpsEdgeY_corr = np.vstack([gpsEdgesY[0::2], gpsEdgesY[1::2]])
     
@@ -164,83 +164,91 @@ def graph_plot(graph, animate = False, poseEdgesPlot = True, landmarkEdgesPlot =
     
     if animate == True:
         plt.axis('equal')
-        plt.xlabel('x [m]')
-        plt.ylabel('y [m]')
+        plt.xlabel('x (m)', fontsize = 14)
+        plt.ylabel('y (m)', fontsize = 14)
         plt.legend(frameon=False,loc='lower center', ncol=5)
         plt.draw()
         plt.pause(1)
+
     else:
+
         plt.axis('equal')
-        plt.xlabel(f'x [m]')
-        plt.ylabel('y [m]')
-        
-        plt.legend(frameon=False,loc='lower center', ncol=5)
-        
+        plt.xlabel('x (m)', fontsize="x-large")
+        plt.xticks(fontsize=14)
+        plt.yticks(fontsize=14)
+        plt.ylabel('y (m)', fontsize="x-large")
+        plt.legend(frameon=False,loc='lower center', ncol=5, fontsize = 14)
+
+    
+    plt.tight_layout()
+    plt.savefig("results/Owndata/Fullroute.png")
     return
 
 def plot_ground_together_noise(n_graph, g_graph, pre_graph, lm_plot: bool=False):
     
-    # from utils.slam_iterate import FOV, PHI, LAMBDAH
-    fig , (ax1,ax2) = plt.subplots(1, 2)
+    _ , (ax1,ax2) = plt.subplots(1, 2)
     gposes, glandmarks, lm_ID, _ = get_poses_landmarks(g_graph)
     nposes, nlandmarks, lm_ID, _ = get_poses_landmarks(n_graph)
     pposes, prelandmarks, lm_ID, _ = get_poses_landmarks(pre_graph)
     
     if len(gposes) > 0:
-        gposes = np.stack(gposes, axis=0) # axis = 0 turns into integers/slices and not tuple
-        ax1.plot(gposes[:,0], gposes[:,1], 'b--')#,label='Ground truth')
-        ax2.plot(gposes[:,0], gposes[:,1], 'b--')#,label='Ground truth')
+        gposes = np.stack(gposes, axis=0) 
+        ax1.plot(gposes[:,0], gposes[:,1], 'forestgreen', linestyle='dashed',zorder = 5, alpha=0.8)
+        ax2.plot(gposes[:,0], gposes[:,1], 'forestgreen',linestyle='dashed',zorder = 5, alpha =0.8)
         
 
     if len(nposes) > 0:
-        nposes = np.stack(nposes, axis=0) # axis = 0 turns into integers/slices and not tuple
-        ax2.plot(nposes[:,0], nposes[:,1], 'g')#,label='Noisy route')
+        nposes = np.stack(nposes, axis=0)
+        ax2.plot(nposes[:,0], nposes[:,1], 'royalblue',zorder = 3)
 
     if len(pposes) > 0:
-        pposes = np.stack(pposes, axis=0) # axis = 0 turns into integers/slices and not tuple
-        ax1.plot(pposes[:,0], pposes[:,1], 'r')#,label='Before Optimization route')
+        pposes = np.stack(pposes, axis=0) 
+        ax1.plot(pposes[:,0], pposes[:,1], 'firebrick',zorder = 3)
 
     if lm_plot == True:
         
         if len(nlandmarks) > 0:
             nlandmarks = np.stack(nlandmarks, axis=0)
-            # plt.plot(landmarks[:,0], landmarks[:,1], 'r*', markersize=12, label = 'Landmark')
-            ax2.scatter(nlandmarks[:,0], nlandmarks[:,1], marker='*', color='lime', s=150, zorder=10)
+            ax2.scatter(nlandmarks[:,0], nlandmarks[:,1], marker='*', color='royalblue', s=120, zorder=10)
             for lx, ly, ID in zip(nlandmarks[:,0], nlandmarks[:,1], lm_ID):
-                ax2.annotate(str(ID), xy=(lx, ly), color='g',alpha = 0.8, zorder=11)
+                ax2.annotate(str(ID), xy=(lx, ly), color='royalblue',alpha = 0.8, zorder=11)
             
         if len(prelandmarks) > 0:
             prelandmarks = np.stack(prelandmarks, axis=0)
-            # plt.plot(landmarks[:,0], landmarks[:,1], 'r*', markersize=12, label = 'Landmark')
-            ax1.scatter(prelandmarks[:,0], prelandmarks[:,1], marker='*', color='red', s=150, zorder=14)
+            ax1.scatter(prelandmarks[:,0], prelandmarks[:,1], marker='*', color='firebrick', s=120, zorder=14)
             for lx, ly, ID in zip(prelandmarks[:,0], prelandmarks[:,1], lm_ID):
-                ax1.annotate(str(ID), xy=(lx, ly), color='r', zorder=15)
+                ax1.annotate(str(ID), xy=(lx, ly), color='firebrick', zorder=15)
 
         if len(glandmarks) > 0:
             glandmarks = np.stack(glandmarks, axis=0)
-            # plt.plot(landmarks[:,0], landmarks[:,1], 'r*', markersize=12, label = 'Landmark')
-            ax1.scatter(glandmarks[:,0], glandmarks[:,1], marker='*', color='b', s=150, zorder=12)
-            ax2.scatter(glandmarks[:,0], glandmarks[:,1], marker='*', color='b', s=150, zorder=12)
+            ax1.scatter(glandmarks[:,0], glandmarks[:,1], marker='*', color='royalblue', s=120, zorder=12)
+            ax2.scatter(glandmarks[:,0], glandmarks[:,1], marker='*', color='royalblue', s=120, zorder=12)
 
             for lx, ly, ID in zip(glandmarks[:,0],glandmarks[:,1], lm_ID):
-                ax1.annotate(str(ID), xy=(lx, ly), color='b',alpha = 0.8,zorder=13)
-                ax2.annotate(str(ID), xy=(lx, ly), color='b',alpha = 0.8,zorder=13)
+                ax1.annotate(str(ID), xy=(lx, ly), color='royalblue',alpha = 0.8,zorder=13)
+                ax2.annotate(str(ID), xy=(lx, ly), color='royalblue',alpha = 0.8,zorder=13)
 
-    plt.suptitle('Pre and Post Optimization')
     ax1.axis('equal')
-    ax1.set_xlabel('x [m]')
-    ax1.set_ylabel('y [m]')
+    ax1.set_xlabel('x (m)', fontsize="x-large")
+    ax1.set_ylabel('y (m)', fontsize="x-large")
+
     ax2.axis('equal')
-    ax2.set_xlabel('x [m]')
-    ax2.set_ylabel('y [m]')
-    ax1.legend(['Ground truth', 'Wheel Odometry'], frameon = False)
-    ax2.legend(['Ground truth','Optimized'], frameon = False)
-    
+    ax2.set_xlabel('x (m)', fontsize="x-large")
+    ax2.set_ylabel('y (m)', fontsize="x-large")
+
+    ax1.legend(['Ground truth', 'Odometry'], frameon = False, loc = 'upper left', fontsize = 14)
+    ax2.legend(['Ground truth','Odometry'], frameon = False, loc = 'upper left',fontsize = 14)
+
+    plt.xticks(fontsize=14)
+    plt.yticks(fontsize=14)
+    plt.tight_layout()
+
+    plt.savefig("results/Owndata/ground_Together.png")
     plt.show()
     return
     
 
-def poses_per_landmark(graph, deg: bool=False):
+def poses_per_landmark(graph, deg: bool=False, pre: bool=False):
 
     poses = []
     landmarks = []
@@ -258,31 +266,49 @@ def poses_per_landmark(graph, deg: bool=False):
     l_values, _ = np.unique(landmarks, return_counts=True)
     p_values, _ = np.unique(poses, return_counts=True)
 
-    sns.histplot(poses, bins= len(p_values), kde=True)
-    plt.xlabel('Pose ID')
-    plt.title('Landmarks acquired per pose')
-    plt.show()
-
-    
-    if deg:
+    if deg: # If x-ticks in degrees instead of bearing
         ax3 = sns.histplot(np.rad2deg(total[:,1]), bins=len(l_values))
-        ax3.set_xlabel('Bearing [deg]')
+        ax3.set_xlabel('Bearing (deg)')
+        plt.xticks(fontsize=14)
+        plt.yticks(fontsize=14)
+        plt.tight_layout()
 
     else:
-        ax3 = sns.histplot((total[:,1]), bins=len(l_values))
-        ax3.xaxis.set_major_locator(plt.MultipleLocator(np.pi / 4)) # denom needs to be written here and in multipleformatter input param for denom
+        ax3 = sns.histplot((total[:,1]), bins=len(l_values), color = 'royalblue')
+        ax3.xaxis.set_major_locator(plt.MultipleLocator(np.pi / 4))
         ax3.xaxis.set_minor_locator(plt.MultipleLocator(np.pi / 16))
         ax3.xaxis.set_major_formatter(plt.FuncFormatter(multiple_formatter()))
-        ax3.set_xlabel('Bearing [rad]')
+        ax3.set_xlabel('Bearing (rad)')
+        
 
-    ax3.legend(['Bearing count'])
-    ax3.set_title('Bearings to landmarks')
+    ax3.legend(['Bearing count'],frameon=False)
+    if pre:
+        plt.xticks(fontsize=14)
+        plt.yticks(fontsize=14)
+        plt.tight_layout()
+        plt.savefig("results/Owndata/bearingcountpre.png")
+    else:
+        plt.xticks(fontsize=14)
+        plt.yticks(fontsize=14)
+        plt.tight_layout()
+        plt.savefig("results/Owndata/bearingcountpost.png")
 
     plt.show()
-    ax4 = sns.histplot(total[:,0], bins=len(l_values))
-    ax4.set_title('Amount of times each unique landmark has been observed')
+
+
+    ax4 = sns.histplot(total[:,0], bins=len(l_values), color = 'royalblue')
     ax4.set_xlabel('Landmark ID')
-    ax4.legend(['Landmark count'])
+    ax4.legend(['Landmark count'],frameon=False)
+    if pre:
+        plt.xticks(fontsize=14)
+        plt.yticks(fontsize=14)
+        plt.tight_layout()
+        plt.savefig("results/Owndata/Landmarkcountpre.png")
+    else:
+        plt.xticks(fontsize=14)
+        plt.yticks(fontsize=14)
+        plt.tight_layout()
+        plt.savefig("results/Owndata/Landmarkcountpost.png")
 
     plt.show()
 
@@ -294,88 +320,98 @@ def landmark_ba(n_graph, g_graph, pre_graph):
     _, glandmarks, glm_ID, _ = get_poses_landmarks(g_graph)
     _, prelandmarks, prelm_ID, _ = get_poses_landmarks(pre_graph)
     
-    
-    fig, axes = plt.subplots(1,2)
+    _, axes = plt.subplots(1,2, figsize = (14,6))
 
     if len(nlandmarks) > 0:
         nlandmarks = np.stack(nlandmarks, axis=0)
-        axes[1].scatter(nlandmarks[:,0], nlandmarks[:,1], marker='*', color='g',  s=150, zorder=11)
+        axes[1].scatter(nlandmarks[:,0], nlandmarks[:,1], marker='*', color='royalblue',  s=120, zorder=11)
         for lx, ly, ID in zip(nlandmarks[:,0], nlandmarks[:,1], nlm_ID):
-            axes[1].annotate(str(ID), xy=(lx, ly), color='g',alpha = 0.8, zorder=11)
-    if len(glandmarks) > 0:
-        glandmarks = np.stack(glandmarks, axis=0)
-        axes[0].scatter(glandmarks[:,0], glandmarks[:,1], marker='*', color='b', alpha=0.8, s=150, zorder=10)
-        axes[1].scatter(glandmarks[:,0], glandmarks[:,1], marker='*', color='b', alpha=0.8, s=150, zorder=10)
-        for lx, ly, ID in zip(glandmarks[:,0], glandmarks[:,1], glm_ID):
-            axes[0].annotate(str(ID), xy=(lx, ly), color='b', alpha = 0.8, zorder=10)
-            axes[1].annotate(str(ID), xy=(lx, ly), color='b', alpha = 0.8, zorder=10)
+            axes[1].annotate(str(ID), xy=(lx, ly), color='royalblue',alpha = 0.8, zorder=11)
 
     if len(prelandmarks) > 0:
         prelandmarks = np.stack(prelandmarks, axis=0)
-        axes[0].scatter(prelandmarks[:,0], prelandmarks[:,1], marker='*', color='red', s=150, zorder=11)
+        axes[0].scatter(prelandmarks[:,0], prelandmarks[:,1], marker='*', color='firebrick', s=120, zorder=11)
         for lx, ly, ID in zip(prelandmarks[:,0], prelandmarks[:,1], prelm_ID):
-            axes[0].annotate(str(ID), xy=(lx, ly), color='r', zorder=11)
+            axes[0].annotate(str(ID), xy=(lx, ly), color='firebrick', zorder=11)
 
-    
-    plt.suptitle('Landmark position before and after Optimization')
-    axes[0].set_xlabel('x [m]')
-    axes[1].set_xlabel('x [m]')
-    axes[0].set_ylabel('y [m]')
-    axes[1].set_ylabel('y [m]')
+    if len(glandmarks) > 0:
+        glandmarks = np.stack(glandmarks, axis=0)
+        axes[0].scatter(glandmarks[:,0], glandmarks[:,1], marker='*', color='forestgreen', alpha=0.8, s=120, zorder=10)
+        axes[1].scatter(glandmarks[:,0], glandmarks[:,1], marker='*', color='forestgreen', alpha=0.8, s=120, zorder=10)
+        for lx, ly, ID in zip(glandmarks[:,0], glandmarks[:,1], glm_ID):
+            axes[0].annotate(str(ID), xy=(lx, ly), color='forestgreen', alpha = 0.8, zorder=10)
+            axes[1].annotate(str(ID), xy=(lx, ly), color='forestgreen', alpha = 0.8, zorder=10)
+
+    axes[0].set_xlabel('x (m)', fontsize="x-large")
+    axes[1].set_xlabel('x (m)', fontsize="x-large")
+    axes[0].set_ylabel('y (m)', fontsize="x-large")
+    axes[1].set_ylabel('y (m)', fontsize="x-large")
     axes[0].axis('equal')
     axes[1].axis('equal')
-    axes[0].legend(['Pre landmarks','Ground truth landmarks'])
-    axes[1].legend(['Noisy landmarks','Ground truth landmarks'])
-    
+    axes[0].legend(['Pre Optimization','Ground truth landmarks'], frameon=False, loc = 'upper left', fontsize=14)
+    axes[1].legend(['Post Optimization','Ground truth landmarks'],frameon=False, loc = 'upper left', fontsize=14)
+    plt.xticks(fontsize=14)
+    plt.yticks(fontsize=14)
+    plt.tight_layout()
+    plt.savefig("results/Owndata/landmarkpositionsbeforeafter.png")
+
     diff_gn = [elem for elem in glm_ID if elem not in nlm_ID]
-
+    diff_gp = [elem for elem in prelm_ID if elem not in nlm_ID]
     corr_glandmarks = np.delete(glandmarks,diff_gn, axis=0)
-    corr_prelandmarks = np.delete(prelandmarks,diff_gn, axis=0)
+    corr_prelandmarks = np.delete(prelandmarks,diff_gp, axis=0)
     
-    diff_ng_abs = np.around(abs(nlandmarks-corr_glandmarks),2)
+    print(len(corr_glandmarks))
+    print(len(corr_glandmarks))
     diff_ng = np.around((nlandmarks-corr_glandmarks),2)
-
-    diff_pg_abs = np.around(abs(corr_prelandmarks-corr_glandmarks),2)
     diff_pg = np.around((corr_prelandmarks-corr_glandmarks),2)
 
-    x = np.expand_dims(diff_ng[:,0],axis = 1)
-    y = np.expand_dims(diff_ng[:,1],axis = 1)
-    ng_sum = round(np.sum(diff_ng),2)
-    pg_sum = round(np.sum(diff_pg),2)
+    xn = np.expand_dims(diff_ng[:,0],axis = 1)
+    yn = np.expand_dims(diff_ng[:,1],axis = 1)
+    xp = np.expand_dims(diff_pg[:,0],axis = 1)
+    yp = np.expand_dims(diff_pg[:,1],axis = 1)
+    xn_sum = round(np.mean(np.abs(xn)),2)
+    yn_sum = round(np.mean(np.abs(yn)),2)
+    xp_sum = round(np.mean(np.abs(xp)),2)
+    yp_sum = round(np.mean(np.abs(yp)),2)
 
-    fig1, (ax1,ax2) = plt.subplots(1,2)    
-    
-    ax1.scatter(diff_ng[:,0], diff_ng[:,1], color = 'b')
-    for lx, ly, ID in zip(x, y, nlm_ID):
-           ax1.annotate(str(ID), xy=(lx, ly), color='b', alpha = 0.8)
-    
-    ax2.scatter(diff_pg[:,0], diff_pg[:,1], color = 'r')
-    ax1.set_title('error between noise and ground')
-    ax2.set_title('error between pre and ground')
-    ax1.set_xlabel('x [m]')
-    ax2.set_xlabel('x [m]')
-    ax1.set_ylabel('y [m]')
-    ax2.set_ylabel('y [m]')
-    leg = ax1.legend(['sum '+str(ng_sum)], handlelength=0, handletextpad=0, fancybox=True)
-    for item in leg.legendHandles:
-        item.set_visible(False)
-    leg = ax2.legend(['sum '+str(pg_sum)], handlelength=0, handletextpad=0, fancybox=True)
-    for item in leg.legendHandles:
-        item.set_visible(False)
+    # print(f"landmark{xn_sum}, {yn_sum}, {xp_sum}, {yp_sum}")
+    ng_sum = round(np.mean(np.abs(diff_ng)),2)
+    pg_sum = round(np.mean(np.abs(diff_pg)),2)
 
+
+    fig1, ax1 = plt.subplots()    
+    
+    ax1.scatter(diff_ng[:,0], diff_ng[:,1], color = 'royalblue', label = ' Post landmark error', marker =  '*', s=120)
+    
+    ax1.scatter(diff_pg[:,0], diff_pg[:,1], color = 'firebrick', label = ' Pre landmark error', marker = '*', s=120)
+    ax1.set_xlabel('x (m)', fontsize="x-large")
+    ax1.set_ylabel('y (m)', fontsize="x-large")
+    ax1.legend(frameon=False,fontsize = 14)
+
+    np.savetxt("results/Owndata/xy_landmark_sum_post_pre.txt", (xn_sum,yn_sum,xp_sum,yp_sum), fmt="%s")
+    plt.xticks(fontsize=14)
+    plt.yticks(fontsize=14)
+    plt.tight_layout()
+    plt.savefig("results/Owndata/landmarkerror_pre_post.png")
+    plt.axis('equal')
     plt.show()
-    
-    row_sum_ng = [sum(x) for x in diff_ng]
+
+    row_sum_ng = [abs(sum(x)) for x in diff_ng]
     row_ng_lm = np.stack(zip(nlm_ID,row_sum_ng))
     
-    df = pd.DataFrame(data = row_ng_lm, columns = ['Landmark ID', 'Sum of x,y error'])
-    # # sns.heatmap(x)len()
-    # # sns.histplot(diff_ng)#, bins = len(nlandmarks))
-    sns.barplot(data = df, x= 'Landmark ID', y = 'Sum of x,y error')
+    df = pd.DataFrame(data = row_ng_lm, columns = ['Landmark ID', 'Sum of x,y error (m)'])
+    snsb = sns.barplot(data = df, x= 'Landmark ID', y = 'Sum of x,y error (m)', color = 'royalblue')
+    snsb.xaxis.set_major_formatter(FuncFormatter(lambda x, _: int(x)))
+
+    plt.xticks(fontsize=14)
+    plt.yticks(fontsize=14)
+    plt.tight_layout()
+    plt.savefig("results/Owndata/landmarkerrorsum.png")
     plt.show()
+    
     return
 
-def A_traj_error(n_graph, g_graph):
+def A_traj_error(n_graph, g_graph): #not used
     
     g_poses, _ , _ , _ = get_poses_landmarks(g_graph)
     n_poses, _ , _ , _ = get_poses_landmarks(n_graph)
@@ -395,28 +431,29 @@ def A_traj_error(n_graph, g_graph):
     
     E = np.stack(E,axis=0)
     ATE_rmse = E.mean()
-    print(ATE_rmse)
  
-    plt.plot(E[:,0])
-    plt.show()
-    plt.plot(E[:,1])
-    plt.show()
-    plt.plot(E[:,2])
-    plt.show()
-    sns.histplot(E[:,0])
-    plt.show()
-    sns.kdeplot(E[:,0])
+    _, (ax1, ax2, ax3) = plt.subplots(3,1)
+
+    ax1.plot(E[:,0])
+    ax1.set_ylabel('x (m)')
+
+    ax2.plot(E[:,1])
+    ax2.set_ylabel('y (m)')
+
+    ax3.plot(E[:,2])
+    ax3.set_ylabel('$\\theta$ [rad]')
+
+    plt.legend(frameon=False)
     plt.show()
 
     return
 
 
-def statistics_plot(graph):
+def statistics_plot(graph): #not used
 
     pose, land, _,_ = get_poses_landmarks(graph)
     pose = np.stack(pose,axis=0)
 
-    # ax1.hist(landmarks, bins = len(values),  alpha=0.5, histtype='stepfilled',color ='steelblue', density=True)
     df = pd.DataFrame(pose, columns = ['x', 'y', 'theta'])
     
     fig, axes = plt.subplots(1,3)
@@ -438,56 +475,79 @@ def statistics_plot(graph):
     plt.title('2D Distribution of poses in map')
     plt.show()
 
-    ax6= sns.kdeplot(data = pose[:,:2], fill = True)#, kde=True)
+    ax6= sns.kdeplot(data = pose[:,:2], fill = True)
     plt.legend(loc = 'upper right', labels=["x","y"])
     plt.title('1D Distribution of x, y poses in map')
     plt.show()
-    # plt.plot(x, mean_1, 'b-', label='mean_1')
-    # plt.fill_between(x, mean_1 - std_1, mean_1 + std_1, color='b', alpha=0.2)
 
     return
-    
-    plt.xticks(np.arange(0, len(values), 5))
-    plt.show()
-    return
 
-def plot_errors(e_full,pose_error,bearing_error,land_error,gps_error):
+def plot_errors(e_full, pose_error, bearing_error,land_error,gps_error):
 
     e_pose = np.vstack((pose_error))
-
     if len(pose_error) >0:
-        f1, (ax1,ax2,ax3) = plt.subplots(1,3)
-        ax1.plot(e_pose[1:,0], color='g', marker="o", label ='x err')
-        ax1.legend(loc="upper right")
-        ax2.plot(e_pose[1:,1], color='b', marker="o", label ='y err')
-        ax2.legend(loc="upper right")
-        ax3.plot(e_pose[1:,2], color='r', marker="o", label ='$\\theta$')
-        ax3.legend(loc="upper right")
-    
+
+        _, (ax1,ax2,ax3) = plt.subplots(1,3,sharex = True)
+        ax1.plot(e_pose[1:,0], color='forestgreen', marker="o", label ='x')
+        ax1.legend(loc="upper right", fontsize = 14,frameon=False)
+        ax1.set_ylabel('Absolute error (m)', fontsize="x-large")
+        ax2.plot(e_pose[1:,1], color='royalblue', marker="o", label ='y')
+        ax2.set_ylabel('Absolute error (m)', fontsize="x-large")
+        ax2.legend(loc="upper right", fontsize = 14,frameon=False)
+        ax3.plot(e_pose[1:,2], color='firebrick', marker="o", label ='$\\theta$')
+        ax3.set_ylabel('Absolute error (rad)', fontsize="x-large")
+        ax3.legend(loc="upper right", fontsize = 14,frameon=False)
+        ax2.set_xlabel('Iteration', fontsize="x-large")
+
+        plt.xticks(fontsize=14)
+        plt.yticks(fontsize=14)
+        plt.tight_layout()
+        plt.savefig("results/Owndata/pose_error_split.png")
+
     if len(bearing_error)>0:
-        ax4 = sns.relplot(data = bearing_error, kind="line", ci = 100)
-        #ax4.plot(bearing_error, label = 'bearing error')
-        #ax4.legend()
-    
-    if len(land_error)>1:
-        e_land = np.abs(np.vstack((land_error))) 
-        _, (ax5,ax6) = plt.subplots(1,2)
-        ax5.plot(e_land[:,0], label ='x land error')
+
+        _, ax4 = plt.subplots()
+        ax4.plot(bearing_error, color='royalblue', marker="o", label ='Bearing error')
+        ax4.legend(fontsize=14)
+        plt.xticks(fontsize=14)
+        plt.yticks(fontsize=14)
+        plt.tight_layout()
+        plt.savefig("results/Owndata/bearing_error.png")
+        
+    if len(land_error)>0:
+
+        e_land = (np.vstack((land_error)))
+        _, ax5 = plt.subplots()
+
+        ax5.plot(e_land[:,0], color='forestgreen', label ='Landmark x error', marker="o")
         ax5.legend()
-        ax6.plot(e_land[:,1], label ='y land error')
-        ax6.legend()
+        ax5.plot(e_land[:,1], color='royalblue', label ='Landmark y error', marker="o")
+        ax5.set_yscale('log')
+        ax5.set_ylabel('Absolute error (m)')
+        ax5.set_xlabel('Iteration')
+        ax5.set_xticks(range(len(e_land)))
+        ax5.legend(fontsize=14,frameon=False)
+        plt.xticks(fontsize=14)
+        plt.yticks(fontsize=14)
+        plt.tight_layout()
+        plt.savefig("results/Owndata/land_error_log.png")
 
     if len(gps_error)>1:
         e_gps = np.abs(np.vstack((gps_error)))
         _, (ax7,ax8) = plt.subplots(1,2)
-        ax7.plot(e_gps[:,0], label ='x gps error')
+        ax7.plot(e_gps[:,0], color='forestgreen', label ='x gps error')
         ax7.legend()
-        ax8.plot(e_gps[:,1], label ='y gps error')
+        ax8.plot(e_gps[:,1], color='royalblue', label ='y gps error')
         ax8.legend()
 
     _, ax9 = plt.subplots()
-    ax9.plot(e_full, label = 'full error')
-    ax9.legend()
+    ax9.plot(e_full, color='royalblue', marker="o")
+    ax9.set_xlabel('Iteration', fontsize="x-large")
+    ax9.set_ylabel('Absolute error', fontsize="x-large")
+    plt.xticks(fontsize=14)
+    plt.yticks(fontsize=14)
+    plt.tight_layout()
+    plt.savefig("results/Owndata/pose_error_full.png")
  
     plt.show()
 
@@ -502,95 +562,129 @@ def color_error_plot(n_graph,g_graph):
 
     _, ax = plt.subplots()
 
+
     e = np.sum(np.abs((gposes[:,:2]-nposes[:,:2])),axis=1)
-    print(e)
+
     x = nposes[:,0]
     y = nposes[:,1]
-    xg = gposes[:,0]
-    yg = gposes[:,1]
 
     bob = ax.scatter(x,y,c=e, cmap="viridis", alpha=0.8)
     cbar = plt.colorbar(bob)
-    cbar.set_label('Absolute x, y error', rotation = 270)
+    cbar.set_label('Absolute x, y error', rotation = 270, fontsize="x-large")
     cbar.ax.get_yaxis().labelpad = 15
 
-    ax.plot(x,y, 'b-')
-    ax.plot(xg,yg, 'k--')
-    ax.legend(['Noise','Ground'])
-    plt.title('Error plotted onto noisy route')
-    plt.xlabel('x [m]')
-    plt.ylabel('y [m]')
+    plt.xlabel('x (m)', fontsize="x-large")
+    plt.ylabel('y (m)', fontsize="x-large")
+    plt.xticks(fontsize=14)
+    plt.yticks(fontsize=14)
     plt.axis('equal')
+    plt.tight_layout()
+    plt.savefig("results/Owndata/error_color_route.png")
+
+    plt.show()
+
+   
+    error_direct = np.sum(np.abs((gposes-nposes)),axis=1)
+    plt.plot(error_direct, label = 'Error')
+    plt.legend(frameon=False, fontsize = 14)
+    plt.xticks(fontsize=14)
+    plt.yticks(fontsize=14)
+    plt.tight_layout()
+    plt.savefig("results/Owndata/error_basic.png")
     plt.show()
 
     
     return
     
     
-def error_plot(g_graph, n_graph):
+def error_plot(n_graph,g_graph,pre_graph):
 
     gposes, _, _, _ = get_poses_landmarks(g_graph)
     nposes, _, _, _ = get_poses_landmarks(n_graph)
+    pre_poses, _, _, _ = get_poses_landmarks(pre_graph)
+
+
     nposes = np.stack(nposes, axis=0)
     gposes = np.stack(gposes, axis=0)
-    diff =[]
+    pre_poses = np.stack(pre_poses,axis=0)
+    diffng =[]
+   
 
-    _, (ax1, ax2, ax3) = plt.subplots(3,1)
-    diff = gposes-nposes
-    for i in range(len(diff[:,2])):
-
-        diff[i,2]= wrap2pi((diff[i,2]))
-
-    ax1.plot(gposes[:,0], color = 'b')
-    ax2.plot(gposes[:,1], color = 'b')
-    ax3.plot(gposes[:,2], color = 'b')
-
-    ax1.plot(nposes[:,0], color = 'y')
-    ax2.plot(nposes[:,1], color = 'y')
-    ax3.plot(nposes[:,2], color = 'y')
-
-    ax1.plot(np.abs(diff[:,0]), color = 'r')
-    ax2.plot(np.abs(diff[:,1]), color = 'r')
-    ax3.plot(np.abs(diff[:,2]), color = 'r')
-    ax1.legend(['Ground truth','Noisy','Abs error'], frameon=False)
-    ax1.set_ylabel('x [m]')
-    # ax2.legend(['Ground truth','Noisy','Error(diff)'])
-    ax2.set_ylabel('y [m]')
-    # ax3.legend(['Ground truth','Noisy','Error(diff)'])
-    ax3.set_ylabel('$\\theta$ [rad]')
+    fig , (ax1, ax2, ax3) = plt.subplots(3,1, figsize=(14,12))
+    diffng = gposes-nposes
     
-    plt.suptitle('Pose error between Noise and Ground truth')
+    for i in range(len(diffng[:,2])):
+
+        diffng[i,2]= wrap2pi((diffng[i,2]))
+
+    ax1.plot(gposes[:,0], color = 'forestgreen',linestyle = 'dashed')
+    ax2.plot(gposes[:,1], color = 'forestgreen',linestyle = 'dashed')
+    ax3.plot(gposes[:,2], color = 'forestgreen',linestyle = 'dashed')
+
+    ax1.plot(nposes[:,0], color = 'royalblue')
+    ax2.plot(nposes[:,1], color = 'royalblue')
+    ax3.plot(nposes[:,2], color = 'royalblue')
+
+    ax1.plot(pre_poses[:,0], color = 'firebrick')
+    ax2.plot(pre_poses[:,1], color = 'firebrick')
+    ax3.plot(pre_poses[:,2], color = 'firebrick')
+
+    ax1.plot(np.abs(diffng[:,0]), color = 'yellow')
+    ax2.plot(np.abs(diffng[:,1]), color = 'yellow')
+    ax3.plot(np.abs(diffng[:,2]), color = 'yellow')
+
+    ax1.legend(['Ground truth','Post Optimization', 'Pre Optimization','Abs error'], frameon=False, fontsize = 14)
+    ax1.set_ylabel('x (m)', fontsize="x-large")
+    ax2.set_ylabel('y (m)', fontsize="x-large")
+    ax3.set_ylabel('$\\theta$ (rad)', fontsize="x-large")
+
+    plt.xticks(fontsize=14)
+    plt.yticks(fontsize=14)
+    plt.tight_layout()
+    plt.savefig("results/Owndata/full_diff_errorplot.png")
+
+    plt.show()
+
+def dcs_arrayplot(dcs_array):
+    _, ax1 = plt.subplots()
+    
+    sns.histplot(dcs_array, color = 'royalblue')
+    plt.tight_layout()
     plt.show()
 
 
-
-def plot_map(n_graph, g_graph):
-    odometry_file = 'g2o_generator/robosim/data/robopath/tester.json'
+def plot_map(n_graph, g_graph, post:bool = True):
+    odometry_file = 'g2o_generator/robosim/data/robopath/route1_gt.json'
     odometry = load_from_json(odometry_file)
 
-    temp_x = np.asfarray(odometry[0]); temp_y = np.asfarray(odometry[1]); temp_th = np.asfarray(odometry[2])
+    temp_x = np.asfarray(odometry[0]); temp_y = np.asfarray(odometry[1])
 
     nposes, _, _, _ = get_poses_landmarks(n_graph)
     gposes, _, _, _ = get_poses_landmarks(g_graph)
 
-
     _, axs = plt.subplots()
+
+    axs.set_xlim([574750, 575100])
+    axs.set_ylim([6222350, 6222700])
+
     axs.set_aspect('equal', 'datalim')
-
-    axs.set_xlim([574730, 575168])
-    axs.set_ylim([6222350, 6222750])
-
     if len(nposes) > 0:
-        nposes = np.stack(nposes, axis=0) # axis = 0 turns into integers/slices and not tuple
-        axs.plot(nposes[:,0]+temp_x[0], nposes[:,1]+temp_y[0], 'b-')
+        nposes = np.stack(nposes, axis=0) 
+        if post:
+            axs.plot(nposes[:,0]+temp_x[0], nposes[:,1]+temp_y[0], 'royalblue',label = 'Odometry route',zorder = 3)
+        else:
+            axs.plot(nposes[:,0]+temp_x[0], nposes[:,1]+temp_y[0], 'firebrick',label = 'Odometry route',zorder = 3)
 
     if len(gposes) > 0:
-        gposes = np.stack(gposes, axis=0) # axis = 0 turns into integers/slices and not tuple
-        axs.plot(gposes[:,0]+temp_x[0], gposes[:,1]+temp_y[0], 'g-')
-    
+        gposes = np.stack(gposes, axis=0)
+        axs.plot(gposes[:,0]+temp_x[0], gposes[:,1]+temp_y[0], 'forestgreen', linestyle = 'dashed', label = 'Ground truth', zorder = 5)
+    axs.set_xlabel('x (m)', fontsize="x-large")
+    axs.set_ylabel('y (m)', fontsize="x-large")
+    axs.ticklabel_format(useOffset=False,style='plain')
+    axs.legend(fontsize = 14, frameon = False)
+
     filenamePoints = 'g2o_generator/GIS_Extraction/data/aarhus_features_v2.csv'
     filenamePoly = 'g2o_generator/GIS_Extraction/data/aarhus_polygons_v2.csv'
-    # landmarks = './g2o_generator/GIS_Extraction/landmarks/landmarks_w_types.json'
 
     aarhus = GIS.read_csv(filenamePoints, filenamePoly)
     _, rowPoly = aarhus.read()
@@ -601,19 +695,24 @@ def plot_map(n_graph, g_graph):
         x_casc, y_casc = geom.exterior.xy
         axs.fill(x_casc, y_casc, alpha=0.5, fc='b', ec='none')
 
-    # aarhus.plot_landmarks(landmarks)
+    plt.xticks(fontsize=14)
+    plt.yticks(fontsize=14)
+    plt.tight_layout()
+
+    plt.savefig("results/Owndata/map_plot.png")
+
     plt.show()
 
 
-
-
 def colors():
+
     CB91_Blue = "#2CBDFE"
     CB91_Green = "#47DBCD"
     CB91_Pink = "#F3A0F2"
     CB91_Purple = "#9D2EC5"
     CB91_Violet = "#661D98"
     CB91_Amber = "#F5B14C"
+    ROBO_Green = "006800ff"
     color_list = [
         CB91_Blue,
         CB91_Pink,
@@ -621,9 +720,65 @@ def colors():
         CB91_Amber,
         CB91_Purple,
         CB91_Violet,
+        ROBO_Green,
     ]
 
     return color_list
+
+
+
+
+def color_error_plot3d(n_graph,g_graph):
+
+    gposes, _, _, _ = get_poses_landmarks(g_graph)
+    nposes, _, _, _ = get_poses_landmarks(n_graph)
+    nposes = np.stack(nposes, axis=0)
+    gposes = np.stack(gposes, axis=0)
+
+    e = np.sum(np.abs((gposes[:,:2]-nposes[:,:2])),axis=1)
+
+    x = nposes[:,0]
+    y = nposes[:,1]
+
+    zline = np.linspace(0, 10, len(gposes))
+
+    fig1 = plt.figure(figsize=plt.figaspect(0.8))
+    ax= plt.axes(projection='3d')
+    k = ax.scatter3D(x,y,zline,c=e,cmap='viridis', alpha=0.5)
+
+    cbar = fig1.colorbar(k)
+    cbar.set_label('Absolute x, y error', rotation = 270, fontsize="x-large")
+    cbar.ax.get_yaxis().labelpad = 15
+     
+    plt.xlabel('x (m)', fontsize="x-large")
+    plt.ylabel('y (m)', fontsize="x-large")
+
+    plt.xticks(fontsize=14)
+    plt.yticks(fontsize=14)
+
+    ax.view_init(elev=15., azim=-135) 
+    plt.tight_layout()
+    plt.savefig("results/Owndata/color_ploterror3D1.png")
+    plt.show()
+   
+
+    fig2 = plt.figure(figsize=plt.figaspect(0.8))
+    ax2 = plt.axes(projection='3d')
+
+    b = ax2.scatter3D(x,y,zline,c=e,cmap='viridis', alpha=0.5)
+ 
+    ax2.view_init(elev=15., azim=45)  
+    
+    plt.xlabel('x (m)', fontsize="x-large")
+    plt.ylabel('y (m)', fontsize="x-large")
+
+    plt.xticks(fontsize=14)
+    plt.yticks(fontsize=14)
+    plt.tight_layout()
+    plt.savefig("results/Owndata/color_ploterror3D2.png")
+
+    plt.show()
+
 
 def multiple_formatter(denominator=4, number=np.pi, latex='\pi'):
     def gcd(a, b):

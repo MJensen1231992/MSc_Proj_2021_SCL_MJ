@@ -1,6 +1,8 @@
 
 def polygon_stacker(polygon):
-
+    """
+    Helper function for p_intersection. Stacks polygons.
+    """    
     polygons = (list(polygon.geoms))
 
     poly_stack = []
@@ -11,17 +13,18 @@ def polygon_stacker(polygon):
         poly_stack.append(poly)
         
 
-        # fig = plt.figure()
-        # ax = fig.add_subplot(111)
-        # ax.plot(*np.array(line).T, color='green', linewidth=3, solid_capstyle='round')
-        # ax.add_patch(descartes.PolygonPatch(polygons[i], fc='blue', alpha=0.5))
-        # ax.axis('equal')
-        # plt.show()
-
     return poly_stack
 
 def p_intersection(line, polygons):
+    """Line of sight calculator, checking if polygons are in the way to landmarks.
 
+    Args:
+        line (linestring object): Line between robot and landmark
+        polygons (polygons): Polygons (buildings in the robot env)
+
+    Returns:
+        Bool: True if clear line of sight, false if not clear
+    """    
     poly_stack = polygon_stacker(polygons)
     
     for p in poly_stack:
