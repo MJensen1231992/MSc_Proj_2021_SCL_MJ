@@ -1,10 +1,13 @@
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 from numpy.lib.npyio import save
 from shapely import geometry
 import utm
 import pandas as pd
 import json
+
+import seaborn as sns
+sns.set(rc={'figure.figsize':(12,6)})
 
 # Description of data from Capra saved in CSV files
 #   geo_odometry : It is the robot's filtered position in longitude-latitude-altitude and absolute EMU heading
@@ -114,9 +117,13 @@ class CSV_Reader:
         plt.figure()
 
         if descriptor == 'geo':
-            plt.scatter(np.array(gnss[0]), np.array(gnss[1]), color='blue', marker='x', label='GNSS')
+            plt.scatter(np.array(gnss[0])-gnss[0][0], np.array(gnss[1])-gnss[1][0], marker='.', color='green', label='GNSS')
         elif descriptor == 'odo':
-            plt.plot(np.array(odo[0]), np.array(odo[1]), color='blue', marker='o', label='Odometry')
+            plt.plot(np.array(odo[0])-odo[0][0], np.array(odo[1])-odo[1][0], color='blue', linewidth=2, label='Odometry')
+            circle1 = plt.Circle((-3.83, 1.78), 1, fill=False, label='Discontinuity', color='red', linewidth=4, zorder=5)
+            plt.gca().add_patch(circle1)
+            circle1 = plt.Circle((10.47, 6.57), 1, fill=False, color='red', linewidth=4, zorder=5)
+            plt.gca().add_patch(circle1)
         elif descriptor == 'fixed':
             plt.plot(np.array(fixed[0]), np.array(fixed[1]), color='blue', marker='o', label='Fixed odometry')
         elif descriptor == 'all':
@@ -124,8 +131,16 @@ class CSV_Reader:
             plt.plot(np.array(odo[0]), np.array(odo[1]), color='red', marker='o', label='Odometry', alpha=0.5)
             # plt.quiver(np.array(fixed[0]), np.array(fixed[1]), np.cos(np.array(fixed[2])), np.sin(np.array(fixed[2])), angles='xy', color='red', scale=20)
             plt.plot(np.array(fixed[0]), np.array(fixed[1]), color='green', marker='o', label='Fixed odometry')
-            
-        plt.legend()
+
+        plt.legend(fontsize=18, frameon=False)
+        plt.xticks(fontsize=14)
+        plt.yticks(fontsize=14)
+        plt.xlabel('x (m)', fontsize="x-large")
+        plt.ylabel('y (m)', fontsize="x-large")
+        plt.tight_layout()
+
+        plt.savefig('g2o_generator/1st_iter_odo.png')
+
         plt.show()
 
 
@@ -151,7 +166,7 @@ def main():
     odometry_fixed = "g2o_generator/capra/data/raw_data/odometry_fixed.csv"
 
     capra = CSV_Reader(geo_odometry, odometry, odometry_fixed, save_data=False, if_plot=True)
-    odometry_pdf = capra.import_csv('all')
+    odometry_pdf = capra.import_csv('odo')
 
 if __name__ == "__main__":
     main()

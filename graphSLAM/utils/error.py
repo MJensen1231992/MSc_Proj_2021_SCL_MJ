@@ -1,8 +1,9 @@
 import numpy as np
 from numpy.linalg import inv
-from utils.helper import *#vec2trans, trans2vec, wrap2pi
+from utils.helper import *
 import math
-# from utils.linearize import pose_landmark_bearing_only_constraints
+
+
 def compute_global_error(graph):
     
     err_Full = 0 
@@ -27,7 +28,6 @@ def compute_global_error(graph):
             x2_trans = vec2trans(x2)
             z_12_inv = inv(vec2trans(z_12))
             
-            #Error from cyrill posegraph video 34:00
             err_Full += np.linalg.norm(trans2vec(np.dot(z_12_inv,np.dot(x1_inv_trans, x2_trans))))
             err_Pose += trans2vec(np.abs(np.dot(z_12_inv,np.dot(x1_inv_trans,x2_trans))))   
            
@@ -42,33 +42,28 @@ def compute_global_error(graph):
             z = edge.poseMeasurement
             z_bearing = z
             x_j = l.reshape(2,1)
-            t_i = x[:2].reshape(2,1) # robot translation(x,y)
-            theta_i = x[2]# robot heading
+            t_i = x[:2].reshape(2,1) 
+            theta_i = x[2]
 
             #robot_landmark_angle
             r_l_trans = (x_j-t_i)
             r_l_angle = math.atan2(r_l_trans[1],r_l_trans[0])
 
-            # err_bearing_test = pose_landmark_bearing_only_constraints(x,l,z)
             err_Full += np.linalg.norm((wrap2pi(wrap2pi((r_l_angle-theta_i))-z_bearing)))
             err_Bearing += np.abs(wrap2pi(wrap2pi((r_l_angle-theta_i))-z_bearing))
-            # err_Bearing += np.abs(err_bearing_test)
-            # print(f"err full bearing:\n{err_Full}")
-            # print(f"err bearing:\n{err_Bearing}")
            
-            
         elif edge.Type == 'L':
             
             fromIdx = graph.lut[edge.nodeFrom]
             toIdx = graph.lut[edge.nodeTo]
 
-            x_i = graph.x[fromIdx:fromIdx+3] #robot pose
-            x_j = graph.x[toIdx:toIdx+2] # landmark pose
+            x_i = graph.x[fromIdx:fromIdx+3] 
+            x_j = graph.x[toIdx:toIdx+2] 
 
-            z_ij = edge.poseMeasurement # measurement
+            z_ij = edge.poseMeasurement
 
-            t_i = x_i[:2].reshape(2,1)#translation part robot translation
-            x_l = x_j.reshape(2,1)#landmark pose
+            t_i = x_i[:2].reshape(2,1)
+            x_l = x_j.reshape(2,1)
             z_il = z_ij.reshape(2,1)
             R_i = vec2trans(x_i)[:2, :2]
 
@@ -110,45 +105,17 @@ def dynamic_covariance_scaling(error, phi):
     return s_ij
 
 
-
-# def calc_error_diff_slam(graph):
-#     err_opt_f = []
-#     err_diff = []
-#     diff = []
-#     e_pose = []
-#     e_land = []
-#     e_gps = []
-    
-#     error_before, err_pose , err_land , err_gps = compute_global_error(graph)
-#     #print(f"error: {error_before}")
-#     err_opt_f.append(error_before)
-#     #e_pose.setdefault(i, [])
-#     #e_pose[i].append(err_pose)
-#     e_pose.append(err_pose)
-#     e_land.append(err_land)
-#     e_gps.append(err_gps)
-#     return err_opt_f
-
 def error_direct_calc(n_graph,g_graph):
+
     gposes, _, _, _ = get_poses_landmarks(g_graph)
     nposes, _, _, _ = get_poses_landmarks(n_graph)
     nposes = np.stack(nposes, axis=0)
     gposes = np.stack(gposes, axis=0)
 
-
-
-    xn = nposes[:,0]
-    yn = nposes[:,1]
-    thn = nposes[:,2]
-    xg = gposes[:,0]
-    yg = gposes[:,1]
-    thg = gposes[:,2]
-
     x_direct = np.mean(np.abs((gposes[:,0]-nposes[:,0])))
     y_direct = np.mean(np.abs((gposes[:,1]-nposes[:,1])))
     th_direct = np.mean(np.abs((gposes[:,2]-nposes[:,2])))
 
-
-
     e_direct = np.asfarray([x_direct,y_direct,th_direct])
+    
     return e_direct

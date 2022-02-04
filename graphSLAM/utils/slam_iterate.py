@@ -5,13 +5,13 @@ from utils.error import *
 from utils.graph_plot import *
 from utils.g2o_loader import load_g2o_graph
 from tqdm import trange
-import imageio
 import os
+import imageio
 warnings.filterwarnings('ignore')
 
 NOISE_FILENAME = '20211230-132841'
 LAMBDAH = 1
-PHI = 1
+PHI = 0.2
 FOV = 120 # Degrees
 LM_RANGE = 20 # Meters
 ODO_RANGE = 2 #
@@ -19,7 +19,8 @@ ODO_RANGE = 2 #
 
 def graph_slam_run_algorithm(graph, numIter, g_graph, pre_noise):
 
-    tol = 1e-10# If error difference is smaller than tolerance it breaks.
+    tol = 1e-10
+
     norm_dX_all = []
     err_opt_f = []
     err_diff = []
@@ -33,33 +34,23 @@ def graph_slam_run_algorithm(graph, numIter, g_graph, pre_noise):
     filenames = []
     frames = []
 
-    # graph_plot(graph,pre_noise,landmarkEdgesPlot=False)
-    
-    # plt.show()
-
     lambdaH = LAMBDAH
     for i in trange(numIter, position=0, leave=True, desc='Running SLAM algorithm'):
         
         if i>0:
             old_x = graph.x
         
-        error_before, err_pose , err_bearing , err_land, err_gps = compute_global_error(graph)
-        # print(f"error bearing iteration\n:{err_bearing}\n")
-        # print(f"error pose iteration\n:{err_pose}\n")
-        # print(f"error full iteration\n:{error_before}\n")
+        error_before, err_pose , err_bearing , err_land, _ = compute_global_error(graph)
+ 
 
         err_opt_f.append(error_before)
         e_pose.append(err_pose)
         e_bear.append(err_bearing)
-        # print(f"bearing error array: \n {e_bear}\n")
-        # print(f"pose error array: \n{err_opt_f}\n")
-        # e_land.append(err_land.reshape(1,2))
-        # e_gps.append(err_gps)
         e_dir = error_direct_calc(graph, g_graph)
         e_direct.append(e_dir)
+
         from utils.linearize import linearize_solve
-        
-        dX, _, _, dcs_array = linearize_solve(graph,lambdaH=lambdaH)
+        dX, _, _, _ = linearize_solve(graph,lambdaH=lambdaH)
 
 
         graph.x += dX
@@ -71,25 +62,24 @@ def graph_slam_run_algorithm(graph, numIter, g_graph, pre_noise):
                 graph.x = old_x
                 lambdaH *= 2
             else:
-                lambdaH /= 2
+                lambdaH /= 6
 
 
-        # graph_plot(graph, pre_noise)
-        # plt.title(f'iteration: {i}')
         
-        # filename = f'slamiter{i}.png'
-        # filenames.append(filename)
+        graph_plot(graph, pre_noise)
+        plt.title(f'iteration: {i}')
+        
+        filename = f'slamiter{i}.png'
+        filenames.append(filename)
 
-        # plt.savefig('./graphSLAM/utils/figs/'+ filename)
-        # plt.close()
+        plt.savefig('./graphSLAM/utils/figs/'+ filename)
+        plt.close()
 
-        # with imageio.get_writer('hej.gif', mode='I') as writer:
-        #     for filename in filenames:
-        #         image = imageio.imread('./graphSLAM/utils/figs/'+ filename)
-        #         # image = imageio.imread(filename)
-                
-        #         writer.append_data(image)
-        #     frames.append(image)
+        with imageio.get_writer('hej.gif', mode='I') as writer:
+            for filename in filenames:
+                image = imageio.imread('./graphSLAM/utils/figs/'+ filename)
+                writer.append_data(image)
+            frames.append(image)
         
 
 
@@ -105,30 +95,22 @@ def graph_slam_run_algorithm(graph, numIter, g_graph, pre_noise):
             break
     
 
-    # imageio.mimsave('./graphSLAM/utils/figs/'+NOISE_FILENAME+'.gif', frames, format='GIF', fps=2)
-    # # Remove files
-    # for filename in set(filenames):
-    #     os.remove('./graphSLAM/utils/figs/'+ filename)
-    np.savetxt("results/Owndata/error_full_array.txt", err_opt_f, fmt="%s")
-    np.savetxt("results/Owndata/rel_change_dx.txt", norm_dX_all, fmt="%s")
-    np.savetxt("results/Owndata/pose_error_split.txt", e_pose, fmt="%s")
+    imageio.mimsave('./graphSLAM/utils/figs/'+NOISE_FILENAME+'.mp4', frames, format='GIF', fps=2)
+   
+    for filename in set(filenames):
+        os.remove('./graphSLAM/utils/figs/'+ filename)
+    os.remove('hej.gif')
+        
     np.savetxt("results/Owndata/params.txt", (LAMBDAH,PHI,FOV,iter), fmt="%s")
     np.savetxt("results/Owndata/error_split_mean.txt", e_direct, fmt="%s")
-    np.savetxt("results/Owndata/error_array_bearing.txt", e_bear, fmt="%s")
 
-
-
-    # dcs_arrayplot(dcs_array)
 
     graph_plot(graph, pre_noise, ontop=True)
     plot_ground_together_noise(graph, g_graph, pre_noise, lm_plot=False)
     plot_map(graph,g_graph)
-    # poses_per_landmark(graph, pre = False)
     
     color_error_plot(graph, g_graph)
     error_plot(graph, g_graph,pre_noise)
-    # A_traj_error(graph, g_graph)
-    # print(f"slamiter{e_land}")
     plot_errors(err_opt_f, e_pose, e_bear, e_land, e_gps)
     landmark_ba(graph,g_graph,pre_noise)
     color_error_plot3d(graph, g_graph)

@@ -5,7 +5,7 @@ from utils.lib.triangulation import Triangulation as TRI
 from collections import namedtuple, defaultdict
 from utils.helper import from_uppertri_to_full, wrap2pi
 
-def load_g2o_graph(filename: str, gt: bool, descriptor: bool):#, firstMeas=True):
+def load_g2o_graph(filename: str, gt: bool, descriptor: bool):
     
     print(f"Loading file: {filename[15:-20]}")
 
@@ -23,7 +23,7 @@ def load_g2o_graph(filename: str, gt: bool, descriptor: bool):#, firstMeas=True)
     with open(filename, 'r') as file:
         for line in file:
            
-            data = line.split() # splits the columns
+            data = line.split() 
             
             if data[0] == 'VERTEX_SE2':
 
@@ -89,6 +89,7 @@ def load_g2o_graph(filename: str, gt: bool, descriptor: bool):#, firstMeas=True)
                 edges.append(edge)
 
             elif data[0] == 'EDGE_SE2_BEARING':
+
                 descriptor = True
                 Type = 'B' #Bearing type
                 nodeFrom = int(data[1])
@@ -112,10 +113,8 @@ def load_g2o_graph(filename: str, gt: bool, descriptor: bool):#, firstMeas=True)
         
         print("Noisy data")
         nodes, nodeTypes, unused_lm = qualified_guess(edges, lut, x, nodes, nodeTypes, least_squares=True, triangulation=False, epsilon=1.0)
-        print(f"unused landmarks:\n{unused_lm}\n")
         edges, nodes, nodeTypes = remove_unused_landmark(edges, nodes, nodeTypes, unused_lm)
         lut, x = update_info(nodes)
-  
  
     from run_slam import Graph
     graph = Graph(x, nodes, edges, lut, nodeTypes,descriptor)
@@ -141,12 +140,11 @@ def update_info(nodes):
 
 def remove_unused_landmark(edges, nodes, nodeTypes, unused_lm):
 
-    # Checking edges (apparently it has to be done twice...?)
     for edge in edges.copy():
+
         if edge.nodeTo in unused_lm:
             print(f"edgenodes to:{edge.nodeTo}\n")
             edges.remove(edge)
-
 
 
     # Checking nodes
@@ -199,8 +197,7 @@ def qualified_guess(edges, lut, x, nodes, nodeTypes, least_squares: bool, triang
             _x_b = x_b # Updating old value
             _z_ij = z_ij # Updating old value
             count += 1
-    print(f"thrown away bearings parallel{k}")
-    np.savetxt("results/Owndata/bearingdiscarded.txt", (k,1), fmt="%s")
+            
 
     for ID, meas in mem.items():
 

@@ -1,2 +1,7 @@
 graphSLAM/data/*
+graphSLAM/newdata/*
+graphSLAM/utils/figs/*
 graphSLAM/utils/__pycache__
+results/*
+Testfolder
+g2o_generator/capra/data/raw_data/rosbags*
