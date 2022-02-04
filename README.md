@@ -25,6 +25,7 @@ After creating your own data file the ground truth and noisy route will be avail
 In utils/linearize.py you can choose whether DCS for outlier downweighning should be active in the dcs bool.
 In utils/slam_iterate.py the plotting functions are called and this is also where you can choose phi values for DCS and lambda for damping.
 
+## Results from bearing-only SLAM
 ![results](./figures/ground_Together.png)
 ![results](./figures/landmarkpositionsbeforeafter.png)
 ![Alt Text](./figures/20211230-132841.gif)
