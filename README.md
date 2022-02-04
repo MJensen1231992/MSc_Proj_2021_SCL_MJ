@@ -29,3 +29,4 @@ In utils/slam_iterate.py the plotting functions are called and this is also wher
 ![results](./figures/ground_Together.png)
 ![results](./figures/landmarkpositionsbeforeafter.png)
 ![Alt Text](./figures/20211230-132841.gif)
+
