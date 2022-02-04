@@ -2,6 +2,7 @@
 ## Landmark-based graph-SLAM optimization for urban mobile robots.
 ### Made by Martin Jensen s164033 & Stefan C. Larsen s164029
 
+![Ged](./ged2.jpg)
 
 ## Running the simulator
 Use the file: run_simulator.py to open and run the simulator. The output is a ground truth robot route and a data file in g2o format. These can be used to run the graph-SLAM algorithm. 
